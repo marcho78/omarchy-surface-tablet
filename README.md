@@ -28,7 +28,8 @@ git clone <this repo> ~/surface-tablet
   Center's Keyboard page). Besides English it shows your system language
   (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`.
-- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen).
+- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), and
+  workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard,
     volume, brightness, ...)

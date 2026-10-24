@@ -122,7 +122,17 @@ local function fill_soon(window)
   end, { type = "oneshot", timeout = 120 })
 end
 
+-- Swiping between workspaces, in desktop and tablet mode alike: drag in from
+-- the left or right edge of the touchscreen, or three fingers on the Type
+-- Cover's touchpad.
+local function workspace_swipes()
+  hl.config({ gestures = { workspace_swipe_touch = true } })
+  hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+end
+
 function M.after()
+  workspace_swipes()
+
   if not M.active() then
     return
   end
