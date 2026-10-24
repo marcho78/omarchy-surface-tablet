@@ -137,6 +137,25 @@ function M.after()
     return
   end
 
+  -- Motion, tablet style. Omarchy has workspace animations off; here the
+  -- workspaces slide, so a swipe glides on into place after the finger
+  -- lifts. Apps open with a slight spring, and resize smoothly when the
+  -- keyboard comes and goes.
+  hl.curve("tabletSpring", { type = "bezier", points = { { 0.3, 1.12 }, { 0.5, 1 } } })
+  hl.curve("tabletGlide", { type = "bezier", points = { { 0.22, 1 }, { 0.36, 1 } } })
+  hl.curve("tabletAway", { type = "bezier", points = { { 0.4, 0 }, { 0.8, 0.6 } } })
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 3.2, bezier = "tabletGlide", style = "slide" })
+  hl.animation({ leaf = "windowsIn", enabled = true, speed = 3.6, bezier = "tabletSpring", style = "popin 85%" })
+  hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.8, bezier = "tabletAway", style = "popin 90%" })
+  hl.animation({ leaf = "windowsMove", enabled = true, speed = 3.5, bezier = "tabletGlide" })
+  hl.animation({ leaf = "layersIn", enabled = true, speed = 3, bezier = "tabletGlide", style = "slide" })
+  hl.animation({ leaf = "layersOut", enabled = true, speed = 2.2, bezier = "tabletAway", style = "slide" })
+
+  -- The keyboard and its hide tab slide up from the bottom edge together.
+  -- The Control Center animates itself, and the swipe strips are invisible.
+  hl.layer_rule({ match = { namespace = "^(wvkbd|osk|devsecai-osk-dismiss)$" }, animation = "slide" })
+  hl.layer_rule({ match = { namespace = "^devsecai-(control-center|gesture-.*)$" }, no_anim = true, animation = "none" })
+
   hl.config({
     general = { gaps_in = 6, gaps_out = 10, border_size = 2 },
     decoration = { rounding = 14 },
