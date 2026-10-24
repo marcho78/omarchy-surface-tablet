@@ -63,10 +63,11 @@ Item {
     Quickshell.execDetached(["bash", "-c", command])
   }
 
-  // Run something that takes over the screen, after the panel is gone.
+  // Run something that takes over the screen, after the panel is gone. The
+  // command starts first: hiding the panel tears this object down.
   function runAndClose(command) {
-    dismiss()
     run("sleep 0.25; " + command)
+    dismiss()
   }
 
   // ---------------------------------------------------------------- readers
