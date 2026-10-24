@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.tablet",
+  "name": "Tablet mode",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Switch between desktop and tablet mode, with a Home button in tablet mode",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Tablet.qml"
+  },
+  "barWidget": {
+    "displayName": "Tablet mode",
+    "description": "Switch between desktop and tablet mode, with a Home button in tablet mode",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.control-center",
+  "name": "Control Center",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Touch-friendly quick settings for tablet mode. Toggle with: omarchy-shell shell toggle devsecai.control-center",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

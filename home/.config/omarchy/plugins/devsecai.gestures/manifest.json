@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.gestures",
+  "name": "Tablet gestures",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Edge swipes in tablet mode: dock, Home, keyboard and Control Center",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Gestures.qml"
+  }
+}

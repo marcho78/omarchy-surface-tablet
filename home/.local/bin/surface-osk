@@ -1,0 +1,102 @@
+#!/bin/bash
+# Type Cover watcher for Surface Pro 4.
+# Cover detached: tablet mode on and the on-screen keyboard is available.
+# Cover attached: desktop mode and the keyboard hides.
+# Only acts when the cover state changes, so manual switches stick until then.
+#   surface-osk          run the watcher (started from autostart.lua)
+#   surface-osk toggle   show/hide the keyboard manually
+#
+# With squeekboard installed, the keyboard pops up by itself when a text field
+# is tapped (while the cover is off). Without it, wvkbd is used and shows as
+# soon as the cover comes off.
+
+COVER=/dev/input/by-id/usb-Microsoft_Surface_Type_Cover-event-kbd
+A11Y=org.gnome.desktop.a11y.applications
+
+if command -v squeekboard >/dev/null; then
+  OSK=squeekboard
+else
+  OSK=wvkbd-mobintl
+fi
+
+osk_dbus() {
+  busctl --user "$@" sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0 2>/dev/null
+}
+
+osk_show() {
+  if [[ $OSK == squeekboard ]]; then
+    osk_dbus call SetVisible b true
+  else
+    pkill -USR2 -x "$OSK"
+  fi
+}
+
+osk_hide() {
+  if [[ $OSK == squeekboard ]]; then
+    osk_dbus call SetVisible b false
+  else
+    pkill -USR1 -x "$OSK"
+  fi
+}
+
+# Pop up on text fields only while the cover is off.
+osk_auto() {
+  [[ $OSK == squeekboard ]] && gsettings set "$A11Y" screen-keyboard-enabled "$1"
+}
+
+if [[ $1 == toggle ]]; then
+  if [[ $OSK == squeekboard ]]; then
+    if [[ $(osk_dbus get-property Visible) == "b true" ]]; then osk_hide; else osk_show; fi
+  else
+    pkill -RTMIN -x "$OSK"
+  fi
+  exit
+fi
+
+# Restart cleanly if already running
+PIDFILE=${XDG_RUNTIME_DIR:-/tmp}/surface-osk.pid
+if [[ -f $PIDFILE ]]; then
+  OLD=$(cat "$PIDFILE")
+  pkill -P "$OLD" 2>/dev/null
+  kill "$OLD" 2>/dev/null
+fi
+echo $$ >"$PIDFILE"
+pkill -x squeekboard
+pkill -x wvkbd-mobintl
+
+if [[ $OSK == squeekboard ]]; then
+  squeekboard &
+else
+  "$OSK" --hidden -L 300 -H 400 &
+fi
+
+LAST=""
+
+sync_state() {
+  local now
+  [[ -e $COVER ]] && now=attached || now=detached
+  [[ $now == "$LAST" ]] && return
+  LAST=$now
+
+  if [[ $now == attached ]]; then
+    osk_auto false
+    osk_hide
+    "$HOME"/.local/bin/tablet-mode off
+  else
+    "$HOME"/.local/bin/tablet-mode on
+    osk_auto true
+    # squeekboard waits for a text field; wvkbd has no way to know, so show it.
+    [[ $OSK == squeekboard ]] || osk_show
+  fi
+}
+
+sleep 1
+sync_state
+
+# React to input devices being added/removed (cover attach/detach)
+udevadm monitor --udev --subsystem-match=input 2>/dev/null |
+  while read -r line; do
+    [[ $line == UDEV* ]] || continue
+    sleep 0.5
+    sync_state
+  done

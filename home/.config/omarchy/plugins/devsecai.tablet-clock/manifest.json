@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.tablet-clock",
+  "name": "Tablet clock",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Large time and date for tablet mode",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Clock.qml"
+  },
+  "barWidget": {
+    "displayName": "Tablet clock",
+    "description": "Large time and date for tablet mode",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

@@ -1,0 +1,195 @@
+#!/bin/bash
+# Switch between desktop and tablet mode.
+#   tablet-mode on|off|toggle|status|home|refit
+# Hyprland side lives in ~/.config/hypr/tablet.lua; the bar button reads
+# $STATE/state.
+
+STATE=$HOME/.local/state/tablet-mode
+FLAG=$STATE/on
+TAG=tablet-maximized
+TABLET_TEXT_SIZE=16
+
+mkdir -p "$STATE"
+
+notify() {
+  omarchy-notification-send -g "$1" "$2" >/dev/null 2>&1 || true
+}
+
+current_text_size() {
+  local line
+  line=$(omarchy display text size 2>/dev/null | head -1)
+  if [[ $line == *"(default)"* ]]; then
+    echo reset
+  else
+    grep -oE '[0-9]+' <<<"$line" | head -1
+  fi
+}
+
+# Apps fill the area between the bar and the dock, keeping their titlebar.
+# tablet.lua reads the area from $STATE/geometry for windows opened later.
+GAP=10
+DOCK_ROOM=18 # the dock auto-hides; leave room for the swipe edge
+TITLEBAR=52 # drawn above the window's own top edge
+
+write_app_area() {
+  hyprctl monitors -j | jq -r --argjson gap "$GAP" --argjson dock "$DOCK_ROOM" --argjson bar "$TITLEBAR" '
+    first(.[] | select(.focused)) // .[0]
+    | (.width / .scale | floor) as $w | (.height / .scale | floor) as $h
+    | (.reserved[1] + $gap + $bar) as $top
+    | ([$dock, .reserved[3] + $gap] | max) as $bottom
+    | "\($gap) \($top) \($w - 2 * $gap) \($h - $top - $bottom)"
+  ' >"$STATE/geometry"
+}
+
+dispatch() {
+  hyprctl dispatch "$1" >/dev/null
+}
+
+fill_open_windows() {
+  local x y w h
+  read -r x y w h <"$STATE/geometry" || return
+  mkdir -p "$STATE/original"
+  hyprctl clients -j | jq -r '.[]
+    | select(.workspace.id >= 1 and .floating and .fullscreen != 2 and .pinned == false
+             and (.size[0] >= 700 or .size[1] >= 560))
+    | "\(.address) \(.at[0]) \(.at[1]) \(.size[0]) \(.size[1]) \(.fullscreen)"' |
+    while read -r address ax ay sw sh fs; do
+      [[ -e $STATE/original/$address ]] || echo "$ax $ay $sw $sh" >"$STATE/original/$address"
+      ((fs == 1)) && dispatch "hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"unset\", window = \"address:$address\" })"
+      dispatch "hl.dsp.window.resize({ x = $w, y = $h, window = \"address:$address\" })"
+      dispatch "hl.dsp.window.move({ x = $x, y = $y, window = \"address:$address\" })"
+      dispatch "hl.dsp.window.tag({ tag = \"+$TAG\", window = \"address:$address\" })"
+    done
+}
+
+# Put windows tablet mode resized back where they were on the desktop.
+restore_windows() {
+  hyprctl clients -j | jq -r --arg tag "$TAG" '.[] | select((.tags // []) | index($tag)) | "\(.address) \(.fullscreen)"' |
+    while read -r address fs; do
+      ((fs == 1)) && dispatch "hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"unset\", window = \"address:$address\" })"
+      if read -r ax ay sw sh <"$STATE/original/$address" 2>/dev/null; then
+        dispatch "hl.dsp.window.resize({ x = $sw, y = $sh, window = \"address:$address\" })"
+        dispatch "hl.dsp.window.move({ x = $ax, y = $ay, window = \"address:$address\" })"
+      fi
+      dispatch "hl.dsp.window.tag({ tag = \"-$TAG\", window = \"address:$address\" })"
+    done
+  rm -rf "$STATE/original"
+}
+
+# The dock only shows on floating workspaces, so tablet mode floats them all.
+# The desktop's saved layouts are set aside and put back by off.
+LAYOUTS=$HOME/.local/state/omarchy/workspace-layouts
+SAVED_LAYOUTS=$STATE/desktop-layouts
+
+float_all_workspaces() {
+  mkdir -p "$LAYOUTS" "$SAVED_LAYOUTS"
+  rm -f "$SAVED_LAYOUTS"/*.lua
+  mv "$LAYOUTS"/*.lua "$SAVED_LAYOUTS"/ 2>/dev/null
+  echo 'o.workspace_mode({ default = "floating" })' >"$LAYOUTS/default.lua"
+}
+
+restore_workspace_layouts() {
+  [[ -d $SAVED_LAYOUTS ]] || return
+  rm -f "$LAYOUTS"/*.lua
+  mv "$SAVED_LAYOUTS"/*.lua "$LAYOUTS"/ 2>/dev/null
+}
+
+# Tablet mode has its own bar: clock, workspaces, Home and a status pill that
+# opens the Control Center. The desktop layout is set aside and put back by off.
+SHELL_JSON=$HOME/.config/omarchy/shell.json
+SHELL_TOML=$HOME/.config/omarchy/shell.toml
+SAVED_BAR=$STATE/desktop-bar-layout.json
+TABLET_BAR='{
+  "left": [{ "id": "devsecai.tablet-clock" }],
+  "centerBegin": [],
+  "center": [{ "id": "omarchy.workspaces" }],
+  "centerEnd": [],
+  "right": [{ "id": "devsecai.tablet-status" }],
+  "tray": []
+}'
+
+edit_shell_json() {
+  local tmp
+  tmp=$(mktemp "$SHELL_JSON.XXXXXX") &&
+    jq "$@" "$SHELL_JSON" >"$tmp" &&
+    mv "$tmp" "$SHELL_JSON"
+}
+
+set_bar_layout() {
+  edit_shell_json --argjson layout "$1" '.bar.layout = $layout'
+}
+
+# The dock hides in tablet mode and comes up with a swipe from the bottom edge
+# (see the devsecai.gestures shell plugin).
+use_tablet_bar() {
+  jq '.bar.layout' "$SHELL_JSON" >"$SAVED_BAR" || return
+  jq '.dock.autohide // false' "$SHELL_JSON" >"$STATE/desktop-dock-autohide"
+  set_bar_layout "$TABLET_BAR"
+  edit_shell_json '.dock.autohide = true'
+  # A taller bar (this is scaled up again by the text size).
+  printf '\n# tablet-mode begin\n[bar]\nsize-horizontal = 34\n# tablet-mode end\n' >>"$SHELL_TOML"
+}
+
+use_desktop_bar() {
+  [[ -s $SAVED_BAR ]] && set_bar_layout "$(cat "$SAVED_BAR")" && rm -f "$SAVED_BAR"
+  if [[ $(cat "$STATE/desktop-dock-autohide" 2>/dev/null) == true ]]; then
+    edit_shell_json '.dock.autohide = true'
+  else
+    edit_shell_json 'del(.dock.autohide)'
+  fi
+  [[ -f $SHELL_TOML ]] && sed -i '/^# tablet-mode begin$/,/^# tablet-mode end$/d' "$SHELL_TOML"
+}
+
+on() {
+  [[ -e $FLAG ]] && return
+  current_text_size >"$STATE/desktop-text-size"
+  touch "$FLAG"
+  echo on >"$STATE/state"
+  float_all_workspaces
+  omarchy display text size "$TABLET_TEXT_SIZE" >/dev/null 2>&1
+  use_tablet_bar
+  hyprctl reload >/dev/null
+  sleep 1.5 # let the taller tablet bar take its space
+  write_app_area
+  fill_open_windows
+  omarchy-shell -q omarchy.dock refresh
+  notify "󰓶" "Tablet mode"
+}
+
+off() {
+  [[ -e $FLAG ]] || return
+  rm -f "$FLAG"
+  echo off >"$STATE/state"
+  restore_windows
+  local size
+  size=$(cat "$STATE/desktop-text-size" 2>/dev/null)
+  use_desktop_bar
+  omarchy display text size "${size:-reset}" >/dev/null 2>&1
+  omarchy-shell shell hide devsecai.control-center >/dev/null 2>&1
+  restore_workspace_layouts
+  hyprctl reload >/dev/null
+  omarchy-shell -q omarchy.dock refresh
+  notify "󰌢" "Desktop mode"
+}
+
+# Home: tuck every app on this workspace into the dock and show the app grid.
+home() {
+  local workspace
+  workspace=$(hyprctl activeworkspace -j | jq -r '.id')
+  hyprctl clients -j | jq -r --argjson ws "$workspace" '.[] | select(.workspace.id == $ws) | .address' |
+    while read -r address; do
+      omarchy-hyprland-window-minimize "$address"
+    done
+  omarchy-shell omarchy.dock apps >/dev/null 2>&1
+}
+
+case $1 in
+  on) on ;;
+  off) off ;;
+  toggle) if [[ -e $FLAG ]]; then off; else on; fi ;;
+  home) home ;;
+  status) [[ -e $FLAG ]] && echo on || echo off ;;
+  # Re-fit apps to the free area, e.g. when the on-screen keyboard opens/closes.
+  refit) [[ -e $FLAG ]] && write_app_area && fill_open_windows ;;
+  *) echo "Usage: tablet-mode on|off|toggle|status|home|refit" >&2; exit 1 ;;
+esac

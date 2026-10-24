@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.tablet-status",
+  "name": "Tablet status",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Wi-Fi, Bluetooth and battery; tap for Control Center",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Status.qml"
+  },
+  "barWidget": {
+    "displayName": "Tablet status",
+    "description": "Wi-Fi, Bluetooth and battery; tap for Control Center",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

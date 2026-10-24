@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.osk",
+  "name": "On-screen keyboard",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Tap to show or hide the on-screen keyboard",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Osk.qml"
+  },
+  "barWidget": {
+    "displayName": "On-screen keyboard",
+    "description": "Tap to show or hide the on-screen keyboard",
+    "category": "System",
+    "allowMultiple": false
+  }
+}
