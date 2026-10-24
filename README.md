@@ -29,7 +29,7 @@ git clone <this repo> ~/surface-tablet
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard,
     volume, brightness, ...)
   - `devsecai.gestures`: edge swipes (bottom: dock / Home, bottom-right: keyboard,
-    top-right: Control Center) and the keyboard dismiss tab
+    top-right pull-down: Control Center, top-left pull-down: notifications) and the keyboard dismiss tab
   - `devsecai.tablet-clock`, `devsecai.tablet-status`: tablet bar widgets
   - `devsecai.osk`, `devsecai.tablet`: desktop bar buttons (keyboard, tablet mode)
 

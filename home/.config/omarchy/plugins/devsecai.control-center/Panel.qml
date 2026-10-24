@@ -59,6 +59,13 @@ Item {
     else close()
   }
 
+  // A swipe up closes the panel, like pushing a sheet back up.
+  component SwipeUpArea: MouseArea {
+    property real startY: 0
+    onPressed: function(mouse) { startY = mouse.y }
+    onPositionChanged: function(mouse) { if (startY - mouse.y > 40) root.dismiss() }
+  }
+
   function run(command) {
     Quickshell.execDetached(["bash", "-c", command])
   }
@@ -119,14 +126,14 @@ Item {
     shown: root.opened
     WlrLayershell.namespace: "devsecai-control-center"
 
-    // Tap anywhere outside the card to close.
+    // Tap anywhere outside the card, or swipe up anywhere, to close.
     Rectangle {
       anchors.fill: parent
       color: "black"
       opacity: root.opened ? 0.28 : 0
       Behavior on opacity { NumberAnimation { duration: 180 } }
 
-      MouseArea {
+      SwipeUpArea {
         anchors.fill: parent
         onClicked: root.dismiss()
       }
@@ -152,7 +159,7 @@ Item {
       id: card
 
       width: Math.min(460, parent.width - 24)
-      height: content.implicitHeight + 36
+      height: content.implicitHeight + 50
       anchors.right: parent.right
       anchors.rightMargin: 12
       y: Style.bar.sizeHorizontal + 12 + (root.opened ? 0 : -10)
@@ -169,7 +176,19 @@ Item {
       Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
       // Swallow taps on the card so they don't reach the scrim.
-      MouseArea { anchors.fill: parent }
+      SwipeUpArea { anchors.fill: parent }
+
+      // Grabber: a hint that the card swipes back up.
+      Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 10
+        width: 40
+        height: 4
+        radius: 2
+        color: Color.foreground
+        opacity: 0.25
+      }
 
       Column {
         id: content

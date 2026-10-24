@@ -9,7 +9,8 @@ import qs.Commons
 //   bottom edge, short swipe up      -> reveal the dock
 //   bottom edge, long swipe up       -> Home (tuck apps away, show the app grid)
 //   bottom-right corner, swipe up    -> on-screen keyboard
-//   top-right edge, swipe down       -> Control Center
+//   top edge, right side, pull down  -> Control Center
+//   top edge, left side, pull down   -> recent notifications
 // The dock reveals when the pointer reaches the screen edge, so revealing it
 // warps the (hidden) pointer there, and tucking it away warps it back.
 Item {
@@ -238,31 +239,73 @@ Item {
     }
   }
 
-  // ------------------------------------------------------------ top-right edge
+  // ------------------------------------------------------------ top edge
 
-  PanelWindow {
+  // The tablet bar is for reading, not tapping: pull down on its right side for
+  // the Control Center, on its left side for recent notifications. The middle
+  // (workspaces) stays tappable. Fires as soon as the finger has pulled far
+  // enough, without waiting for it to lift.
+  readonly property int barHeight: Math.max(Style.bar.sizeHorizontal, 30)
+  readonly property real pullZone: 0.38
+
+  component PullDown: PanelWindow {
+    id: zone
+    property bool right: false
+    property string command: ""
+    property alias pressed: pull.pressed
+
     visible: root.tablet && !!root.screen
     screen: root.screen
-    anchors { top: true; right: true }
-    implicitWidth: Math.round(root.screenW * 0.3)
-    implicitHeight: 8
+    anchors { top: true; left: !zone.right; right: zone.right }
+    implicitWidth: Math.round(root.screenW * root.pullZone)
+    implicitHeight: root.barHeight
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "devsecai-gesture-top"
+    WlrLayershell.namespace: zone.right ? "devsecai-gesture-top-right" : "devsecai-gesture-top-left"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     MouseArea {
+      id: pull
       anchors.fill: parent
       preventStealing: true
 
       property real startY: 0
+      property bool fired: false
 
-      onPressed: function(mouse) { startY = mouse.y }
-      onReleased: function(mouse) {
-        if (mouse.y - startY >= root.swipeMin)
-          root.run("omarchy-shell shell toggle devsecai.control-center")
+      onPressed: function(mouse) {
+        startY = mouse.y
+        fired = false
+      }
+      onPositionChanged: function(mouse) {
+        if (fired || mouse.y - startY < root.swipeMin) return
+        fired = true
+        root.run(zone.command)
       }
     }
+  }
+
+  PullDown {
+    right: true
+    command: "omarchy-shell shell toggle devsecai.control-center"
+
+    // Grabber under the status icons: a hint that this edge pulls down.
+    Rectangle {
+      anchors.right: parent.right
+      anchors.rightMargin: 44
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 2
+      width: 40
+      height: 4
+      radius: 2
+      color: Color.foreground
+      opacity: parent.pressed ? 0.7 : 0.3
+      Behavior on opacity { NumberAnimation { duration: 120 } }
+    }
+  }
+
+  PullDown {
+    right: false
+    command: "omarchy-shell -q notifications showHistory"
   }
 }

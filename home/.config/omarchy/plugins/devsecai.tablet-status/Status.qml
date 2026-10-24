@@ -6,7 +6,8 @@ import Quickshell.Services.UPower
 import qs.Ui
 import qs.Commons
 
-// Status icons in one wide pill; tapping anywhere on it opens the Control Center.
+// Status icons for the tablet bar. Display only: pulling down on this side of
+// the bar opens the Control Center (see the devsecai.gestures plugin).
 BarWidget {
   id: root
   moduleName: "devsecai.tablet-status"
@@ -32,9 +33,7 @@ BarWidget {
     width: row.implicitWidth + 28
     height: parent.height - 6
     radius: height / 2
-    color: area.pressed ? Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.16)
-                        : Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.06)
-    Behavior on color { ColorAnimation { duration: 120 } }
+    color: "transparent"
 
     Row {
       id: row
@@ -80,12 +79,6 @@ BarWidget {
           font.bold: true
         }
       }
-    }
-
-    MouseArea {
-      id: area
-      anchors.fill: parent
-      onClicked: root.bar.run("omarchy-shell shell toggle devsecai.control-center")
     }
   }
 }
