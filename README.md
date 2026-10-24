@@ -34,7 +34,8 @@ git clone <this repo> ~/surface-tablet
   Center's Keyboard page). Besides English it shows your system language
   (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`.
-- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), and
+- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
+  motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard,
@@ -54,3 +55,14 @@ git clone <this repo> ~/surface-tablet
 ## Notes
 - Service plugins (gestures) only reload with `omarchy restart shell`.
 - `tools/taplog.py` (run with sudo) logs touch events, for debugging lag.
+
+## Pending on this machine
+Built but needing sudo to install:
+- `sudo pacman -U packages/wvkbd/wvkbd-0.20-1.1-x86_64.pkg.tar.zst` (build it first with
+  `makepkg` in `packages/wvkbd` on a fresh clone): held keys repeat.
+- `./install.sh --patches`: theme picker slides by touch.
+- `sudo pacman -S squeekboard`: keyboard pops up on text fields (conflicts with fcitx5,
+  which currently owns the input method).
+
+`git log` has the reasoning behind each change.
+
