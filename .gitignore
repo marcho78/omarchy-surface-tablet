@@ -1,2 +1,6 @@
 __pycache__/
 *.bak.*
+packages/*/src/
+packages/*/pkg/
+packages/*/*.pkg.tar.zst
+packages/*/*.tar.gz

@@ -1,0 +1,14 @@
+--- a/keyboard.c	2026-07-24 14:16:05.000000000 -0700
++++ b/keyboard.c	2026-10-23 23:15:32.668836124 -0700
+@@ -396,7 +396,10 @@
+             kb->last_swipe = intersect_key;
+             kbd_draw_key(kb, kb->last_swipe, Swipe);
+         }
+-    } else {
++    } else if (kb->last_press && kbd_get_key(kb, x, y) != kb->last_press) {
++        // Only let go once the finger slides onto another key: a resting
++        // finger jitters a pixel or two, and releasing on that stops a held
++        // key (backspace) from repeating.
+         kbd_unpress_key(kb, time);
+     }
+ 
