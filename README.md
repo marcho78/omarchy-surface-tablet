@@ -8,7 +8,8 @@ git clone <this repo> ~/surface-tablet
 ~/surface-tablet/install.sh     # then reboot
 ```
 
-`./install.sh --home` redoes only the home-directory part (no sudo).
+`./install.sh --home` redoes only the home-directory part (no sudo);
+`./install.sh --patches` only the Omarchy shell patches.
 
 ## What it sets up
 
@@ -19,6 +20,11 @@ git clone <this repo> ~/surface-tablet
 - `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
   then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
 - `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
+
+- Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
+  applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook
+  after every Omarchy update. A patch that no longer fits a new version is skipped,
+  not forced. Currently: slide a finger (or scroll) through the theme/background picker.
 
 **Home** (symlinked from `home/`)
 - `~/.local/bin/surface-osk`: Type Cover watcher. Cover off → tablet mode on and

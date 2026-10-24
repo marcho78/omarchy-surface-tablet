@@ -1,0 +1,11 @@
+# Omarchy updates overwrite the shell files; put our touch patches back.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy
+
+[Action]
+Description = Re-applying Surface touch patches to the Omarchy shell...
+When = PostTransaction
+Exec = /usr/local/bin/surface-omarchy-patches

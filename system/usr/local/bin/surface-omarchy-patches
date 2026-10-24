@@ -1,0 +1,21 @@
+#!/bin/bash
+# Re-apply our touch patches to Omarchy's shell. Run by a pacman hook after
+# every omarchy package install or upgrade (which overwrites the files), and by
+# install.sh. Already-applied patches are skipped; a patch that no longer fits
+# a new Omarchy version is reported and left out, never forced.
+
+PATCHES=/usr/local/share/surface-tablet/omarchy-patches
+SHELL_DIR=/usr/share/omarchy/shell
+
+for patch in "$PATCHES"/*.patch; do
+  [[ -e $patch ]] || continue
+  name=$(basename "$patch" .patch)
+  if patch -d "$SHELL_DIR" -p0 -R --dry-run -s -f <"$patch" >/dev/null 2>&1; then
+    echo "surface-tablet: $name already applied"
+  elif patch -d "$SHELL_DIR" -p0 --dry-run -s -f <"$patch" >/dev/null 2>&1; then
+    patch -d "$SHELL_DIR" -p0 -s -f --no-backup-if-mismatch <"$patch" && echo "surface-tablet: applied $name"
+  else
+    echo "surface-tablet: $name no longer fits this Omarchy version, skipped" >&2
+  fi
+done
+exit 0

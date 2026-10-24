@@ -1,0 +1,63 @@
+--- plugins/image-picker/ImagePicker.qml	2026-10-23 23:50:02.171878293 -0700
++++ plugins/image-picker/ImagePicker.qml	2026-10-23 23:50:02.189292069 -0700
+@@ -728,6 +728,60 @@
+ 
+           Component.onCompleted: forceActiveFocus()
+ 
++          // Touch: slide a finger left or right to move through the images,
++          // one card per card-width of travel, so the row follows the finger.
++          // The handler sits above the cards so it sees the press first; a tap
++          // still reaches the card, a slide takes over from it.
++          Item {
++            anchors.fill: parent
++            z: 1000
++
++            DragHandler {
++              id: slide
++              target: null
++              enabled: root.layoutSettled && !root.deleteConfirmOpen
++              yAxis.enabled: false
++
++              property real consumed: 0
++
++              onActiveChanged: consumed = 0
++              onActiveTranslationChanged: {
++                var step = Math.max(carousel.itemStep, 24)
++                var travel = (carousel.mirrored ? -1 : 1) * activeTranslation.x
++                while (travel - consumed <= -step) {
++                  root.selectAdjacent(1)
++                  consumed -= step
++                }
++                while (travel - consumed >= step) {
++                  root.selectAdjacent(-1)
++                  consumed += step
++                }
++              }
++            }
++
++            // Mouse wheel and two-finger touchpad scrolling, either axis.
++            WheelHandler {
++              target: null
++              enabled: root.layoutSettled && !root.deleteConfirmOpen
++              acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
++
++              property real pending: 0
++
++              onWheel: function(event) {
++                var delta = Math.abs(event.angleDelta.x) > Math.abs(event.angleDelta.y) ? event.angleDelta.x : event.angleDelta.y
++                pending += delta
++                while (pending <= -120) {
++                  root.selectAdjacent(1)
++                  pending += 120
++                }
++                while (pending >= 120) {
++                  root.selectAdjacent(-1)
++                  pending -= 120
++                }
++              }
++            }
++          }
++
+           Repeater {
+             id: imageCards
+             model: visibleImages

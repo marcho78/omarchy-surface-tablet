@@ -4,6 +4,7 @@
 #
 #   ./install.sh          everything (asks for sudo for the system part)
 #   ./install.sh --home   only your home directory, no sudo
+#   ./install.sh --patches  only the Omarchy shell touch patches (sudo)
 #
 # Files under home/ are symlinked into $HOME, so editing them in place edits
 # this repo. Files that also hold your own settings (hyprland.lua, bindings,
@@ -43,6 +44,19 @@ install_system() {
   say "Lower touch latency (iptsd)"
   sudo install -Dm644 "$REPO/system/etc/iptsd.d/10-low-latency.conf" /etc/iptsd.d/10-low-latency.conf
   sudo systemctl restart 'iptsd@*' 2>/dev/null || true
+
+  say "Touch patches for the Omarchy shell (kept across Omarchy updates)"
+  install_omarchy_patches
+}
+
+# Patches to Omarchy's own shell files (e.g. sliding through the theme picker
+# by touch), plus a pacman hook that puts them back after each Omarchy update.
+install_omarchy_patches() {
+  sudo install -Dm755 "$REPO/system/usr/local/bin/surface-omarchy-patches" /usr/local/bin/surface-omarchy-patches
+  sudo install -Dm644 "$REPO/system/etc/pacman.d/hooks/surface-omarchy-patches.hook" /etc/pacman.d/hooks/surface-omarchy-patches.hook
+  sudo rm -rf /usr/local/share/surface-tablet/omarchy-patches
+  sudo install -Dm644 -t /usr/local/share/surface-tablet/omarchy-patches "$REPO"/system/usr/local/share/surface-tablet/omarchy-patches/*.patch
+  sudo /usr/local/bin/surface-omarchy-patches
 }
 
 # ---------------------------------------------------------------- home
@@ -118,6 +132,7 @@ o.bind("SUPER + SHIFT + K", "On-screen keyboard", os.getenv("HOME") .. "/.local/
 
 case ${1:-} in
   --home) install_home ;;
+  --patches) install_omarchy_patches; omarchy restart shell >/dev/null 2>&1 || true ;;
   "") install_system; install_home; say "Done. Reboot into the linux-surface kernel." ;;
-  *) echo "Usage: $0 [--home]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [--home|--patches]" >&2; exit 1 ;;
 esac
