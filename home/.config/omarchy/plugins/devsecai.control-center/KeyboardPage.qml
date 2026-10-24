@@ -3,7 +3,8 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 
-// On-screen keyboard settings: layout style, height and extra languages.
+// On-screen keyboard settings: layout style and height. Your preferred
+// language (from the system settings) is added by surface-osk itself.
 // Saved and applied by `surface-osk set`, which restarts the keyboard.
 Column {
   id: page
@@ -13,16 +14,6 @@ Column {
   readonly property string home: Quickshell.env("HOME")
   property string style: "standard"
   property string size: "medium"
-  property var langs: []
-
-  readonly property var languages: [
-    { id: "greek", label: "Greek" },
-    { id: "cyrillic", label: "Cyrillic" },
-    { id: "arabic", label: "Arabic" },
-    { id: "persian", label: "Persian" },
-    { id: "hebrew", label: "Hebrew" },
-    { id: "georgian", label: "Georgian" }
-  ]
 
   spacing: 14
 
@@ -42,21 +33,11 @@ Column {
       var value = m[2].replace(/^'(.*)'$/, "$1")
       if (m[1] === "STYLE") style = value
       else if (m[1] === "SIZE") size = value
-      else if (m[1] === "LANGS") langs = value === "" ? [] : value.split(",")
     }
   }
 
   function set(key, value) {
     Quickshell.execDetached([home + "/.local/bin/surface-osk", "set", key, value])
-  }
-
-  function toggleLanguage(id) {
-    var next = langs.slice()
-    var at = next.indexOf(id)
-    if (at >= 0) next.splice(at, 1)
-    else next.push(id)
-    langs = next
-    set("langs", next.join(","))
   }
 
   readonly property color subtle: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.08)
@@ -218,32 +199,10 @@ Column {
     }
   }
 
-  Heading { text: "EXTRA LANGUAGES" }
-
-  Grid {
-    width: parent.width
-    columns: 3
-    columnSpacing: 10
-    rowSpacing: 10
-    readonly property real cell: (width - 2 * columnSpacing) / 3
-
-    Repeater {
-      model: page.languages
-
-      Choice {
-        required property var modelData
-        width: parent.cell
-        label: modelData.label
-        selected: page.langs.indexOf(modelData.id) >= 0
-        onTapped: page.toggleLanguage(modelData.id)
-      }
-    }
-  }
-
   Text {
     width: parent.width
     wrapMode: Text.WordWrap
-    text: "Switch between layouts and languages with the bottom-left key on the keyboard."
+    text: "Symbols and emoji are behind the bottom-left key on the keyboard."
     color: Color.foreground
     opacity: 0.55
     font.family: Style.font.family

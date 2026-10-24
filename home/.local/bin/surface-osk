@@ -7,8 +7,9 @@
 #   surface-osk toggle   show/hide the keyboard manually
 #   surface-osk set style standard|full|simple
 #   surface-osk set size small|medium|large
-#   surface-osk set langs greek,cyrillic,...   (or "" for none)
 #                        change the wvkbd layout; saved in $SETTINGS
+# Besides English, wvkbd shows your preferred language when it has a layout
+# for it: the first one found in Hyprland's kb_layout, then $LANG.
 #
 # With squeekboard installed, the keyboard pops up by itself when a text field
 # is tapped (while the cover is off). Without it, wvkbd is used and shows as
@@ -53,19 +54,36 @@ osk_auto() {
 SETTINGS=$HOME/.config/surface-osk/settings
 STYLE=standard
 SIZE=medium
-LANGS=""
 [[ -f $SETTINGS ]] && source "$SETTINGS"
 
-# Each style is a cycle of layers (the layer key steps through them); extra
-# languages join the cycle after the main layout.
+# The wvkbd layout for the preferred language, if any (English needs none).
+preferred_language() {
+  local code
+  for code in $(hyprctl getoption input:kb_layout 2>/dev/null | sed -n 's/^str: //p' | tr ',' ' ') "${LANG%%_*}"; do
+    case $code in
+      gr | el) echo greek ;;
+      ru | ua | uk | by | bg | rs | sr | mk | kz | kk) echo cyrillic ;;
+      ara | ar | eg | sa | iq | ma | dz | sy) echo arabic ;;
+      ir | fa) echo persian ;;
+      il | he) echo hebrew ;;
+      ge | ka) echo georgian ;;
+      *) continue ;;
+    esac
+    return
+  done
+}
+
+# Each style is a cycle of layers (the layer key steps through them); the
+# preferred language joins the cycle after the main layout.
 wvkbd_args() {
-  local landscape portrait extra="" height
+  local landscape portrait extra="" height lang
   case $STYLE in
     full) landscape=fullwide portrait=full ;;
     simple) landscape=simple portrait=simple ;;
     *) landscape=landscape portrait=full ;;
   esac
-  [[ -n $LANGS ]] && extra=",$LANGS"
+  lang=$(preferred_language)
+  [[ -n $lang ]] && extra=",$lang"
   case $SIZE in
     small) height=240 ;;
     large) height=360 ;;
@@ -85,11 +103,10 @@ if [[ $1 == set ]]; then
   case $2 in
     style) [[ $3 =~ ^(standard|full|simple)$ ]] && STYLE=$3 ;;
     size) [[ $3 =~ ^(small|medium|large)$ ]] && SIZE=$3 ;;
-    langs) [[ $3 =~ ^[a-z,]*$ ]] && LANGS=$3 ;;
-    *) echo "Usage: surface-osk set style|size|langs VALUE" >&2; exit 1 ;;
+    *) echo "Usage: surface-osk set style|size VALUE" >&2; exit 1 ;;
   esac
   mkdir -p "$(dirname "$SETTINGS")"
-  printf 'STYLE=%s\nSIZE=%s\nLANGS=%q\n' "$STYLE" "$SIZE" "$LANGS" >"$SETTINGS"
+  printf 'STYLE=%s\nSIZE=%s\n' "$STYLE" "$SIZE" >"$SETTINGS"
   if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
     # Restart with the new layout, open again if it was open.
     if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi
