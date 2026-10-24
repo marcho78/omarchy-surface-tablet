@@ -44,7 +44,14 @@ Item {
 
   // ---------------------------------------------------------------- panel API
 
+  // "main", or "keyboard" for the on-screen keyboard settings. Open on a page
+  // with: omarchy-shell shell summon devsecai.control-center '{"page":"keyboard"}'
+  property string page: "main"
+
   function open(payloadJson) {
+    var payload = {}
+    try { payload = JSON.parse(payloadJson || "{}") || {} } catch (e) {}
+    page = payload.page === "keyboard" ? "keyboard" : "main"
     opened = true
     ssidProc.running = true
     brightnessRead.running = true
@@ -244,90 +251,104 @@ Item {
           }
         }
 
-        Grid {
+        KeyboardPage {
           width: parent.width
-          columns: 2
-          columnSpacing: 10
-          rowSpacing: 10
-
-          readonly property real cell: (width - columnSpacing) / 2
-
-          Tile {
-            width: parent.cell
-            icon: root.wifiOn ? "󰖩" : "󰖪"
-            title: "Wi-Fi"
-            subtitle: !root.wifiOn ? "Off" : (root.ssid !== "" ? root.ssid : "Not connected")
-            active: root.wifiOn
-            showMore: true
-            onTapped: Networking.wifiEnabled = !Networking.wifiEnabled
-            onMoreTapped: root.runAndClose("omarchy-shell shell toggle omarchy.network")
-          }
-
-          Tile {
-            width: parent.cell
-            icon: root.bluetoothOn ? "󰂯" : "󰂲"
-            title: "Bluetooth"
-            subtitle: !root.adapter ? "Unavailable" : (root.bluetoothOn ? "On" : "Off")
-            active: root.bluetoothOn
-            showMore: true
-            onTapped: if (root.adapter) root.adapter.enabled = !root.adapter.enabled
-            onMoreTapped: root.runAndClose("omarchy-shell shell toggle omarchy.bluetooth")
-          }
-
-          Tile {
-            width: parent.cell
-            icon: "󰌌"
-            title: "Keyboard"
-            subtitle: "Show / hide"
-            onTapped: root.runAndClose(root.home + "/.local/bin/surface-osk toggle")
-          }
-
-          Tile {
-            width: parent.cell
-            icon: "󰄀"
-            title: "Screenshot"
-            subtitle: "Capture screen"
-            onTapped: root.runAndClose("omarchy capture screenshot")
-          }
-
-          Tile {
-            width: parent.cell
-            icon: "󰀻"
-            title: "Apps"
-            subtitle: "App library"
-            onTapped: root.runAndClose("omarchy-shell omarchy.dock apps")
-          }
-
-          Tile {
-            width: parent.cell
-            icon: "󰌢"
-            title: "Desktop"
-            subtitle: "Exit tablet"
-            onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
-          }
+          visible: root.page === "keyboard"
+          onBack: root.page = "main"
         }
 
-        PillSlider {
+        Column {
           width: parent.width
-          icon: root.muted ? "󰝟" : (root.volume > 0.5 ? "󰕾" : "󰖀")
-          value: root.volume
-          onMoved: function(v) {
-            if (root.sink && root.sink.audio) {
-              root.sink.audio.volume = v
-              if (root.muted && v > 0) root.sink.audio.muted = false
+          visible: root.page === "main"
+          spacing: 14
+
+          Grid {
+            width: parent.width
+            columns: 2
+            columnSpacing: 10
+            rowSpacing: 10
+
+            readonly property real cell: (width - columnSpacing) / 2
+
+            Tile {
+              width: parent.cell
+              icon: root.wifiOn ? "󰖩" : "󰖪"
+              title: "Wi-Fi"
+              subtitle: !root.wifiOn ? "Off" : (root.ssid !== "" ? root.ssid : "Not connected")
+              active: root.wifiOn
+              showMore: true
+              onTapped: Networking.wifiEnabled = !Networking.wifiEnabled
+              onMoreTapped: root.runAndClose("omarchy-shell shell toggle omarchy.network")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: root.bluetoothOn ? "󰂯" : "󰂲"
+              title: "Bluetooth"
+              subtitle: !root.adapter ? "Unavailable" : (root.bluetoothOn ? "On" : "Off")
+              active: root.bluetoothOn
+              showMore: true
+              onTapped: if (root.adapter) root.adapter.enabled = !root.adapter.enabled
+              onMoreTapped: root.runAndClose("omarchy-shell shell toggle omarchy.bluetooth")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰌌"
+              title: "Keyboard"
+              subtitle: "Show / hide"
+              showMore: true
+              onTapped: root.runAndClose(root.home + "/.local/bin/surface-osk toggle")
+              onMoreTapped: root.page = "keyboard"
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰄀"
+              title: "Screenshot"
+              subtitle: "Capture screen"
+              onTapped: root.runAndClose("omarchy capture screenshot")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰀻"
+              title: "Apps"
+              subtitle: "App library"
+              onTapped: root.runAndClose("omarchy-shell omarchy.dock apps")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰌢"
+              title: "Desktop"
+              subtitle: "Exit tablet"
+              onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
             }
           }
-          onIconTapped: if (root.sink && root.sink.audio) root.sink.audio.muted = !root.muted
-        }
 
-        PillSlider {
-          width: parent.width
-          icon: "󰃠"
-          value: root.brightness
-          onMoved: function(v) {
-            root.brightness = v
-            root.pendingBrightness = v
-            brightnessWrite.restart()
+          PillSlider {
+            width: parent.width
+            icon: root.muted ? "󰝟" : (root.volume > 0.5 ? "󰕾" : "󰖀")
+            value: root.volume
+            onMoved: function(v) {
+              if (root.sink && root.sink.audio) {
+                root.sink.audio.volume = v
+                if (root.muted && v > 0) root.sink.audio.muted = false
+              }
+            }
+            onIconTapped: if (root.sink && root.sink.audio) root.sink.audio.muted = !root.muted
+          }
+
+          PillSlider {
+            width: parent.width
+            icon: "󰃠"
+            value: root.brightness
+            onMoved: function(v) {
+              root.brightness = v
+              root.pendingBrightness = v
+              brightnessWrite.restart()
+            }
           }
         }
       }

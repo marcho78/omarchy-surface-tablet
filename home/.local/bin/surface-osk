@@ -5,6 +5,10 @@
 # Only acts when the cover state changes, so manual switches stick until then.
 #   surface-osk          run the watcher (started from autostart.lua)
 #   surface-osk toggle   show/hide the keyboard manually
+#   surface-osk set style standard|full|simple
+#   surface-osk set size small|medium|large
+#   surface-osk set langs greek,cyrillic,...   (or "" for none)
+#                        change the wvkbd layout; saved in $SETTINGS
 #
 # With squeekboard installed, the keyboard pops up by itself when a text field
 # is tapped (while the cover is off). Without it, wvkbd is used and shows as
@@ -44,6 +48,58 @@ osk_auto() {
   [[ $OSK == squeekboard ]] && gsettings set "$A11Y" screen-keyboard-enabled "$1"
 }
 
+# wvkbd layout settings, written by `surface-osk set` (the Control Center's
+# Keyboard page) and read whenever wvkbd starts.
+SETTINGS=$HOME/.config/surface-osk/settings
+STYLE=standard
+SIZE=medium
+LANGS=""
+[[ -f $SETTINGS ]] && source "$SETTINGS"
+
+# Each style is a cycle of layers (the layer key steps through them); extra
+# languages join the cycle after the main layout.
+wvkbd_args() {
+  local landscape portrait extra="" height
+  case $STYLE in
+    full) landscape=fullwide portrait=full ;;
+    simple) landscape=simple portrait=simple ;;
+    *) landscape=landscape portrait=full ;;
+  esac
+  [[ -n $LANGS ]] && extra=",$LANGS"
+  case $SIZE in
+    small) height=240 ;;
+    large) height=360 ;;
+    *) height=300 ;;
+  esac
+  echo "--landscape-layers $landscape$extra,landscapespecial,emoji" \
+    "-l $portrait$extra,special,emoji" \
+    "-L $height -H $((height * 4 / 3))"
+}
+
+start_wvkbd() {
+  # shellcheck disable=SC2046
+  setsid -f wvkbd-mobintl "$@" $(wvkbd_args) >/dev/null 2>&1
+}
+
+if [[ $1 == set ]]; then
+  case $2 in
+    style) [[ $3 =~ ^(standard|full|simple)$ ]] && STYLE=$3 ;;
+    size) [[ $3 =~ ^(small|medium|large)$ ]] && SIZE=$3 ;;
+    langs) [[ $3 =~ ^[a-z,]*$ ]] && LANGS=$3 ;;
+    *) echo "Usage: surface-osk set style|size|langs VALUE" >&2; exit 1 ;;
+  esac
+  mkdir -p "$(dirname "$SETTINGS")"
+  printf 'STYLE=%s\nSIZE=%s\nLANGS=%q\n' "$STYLE" "$SIZE" "$LANGS" >"$SETTINGS"
+  if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
+    # Restart with the new layout, open again if it was open.
+    if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi
+    pkill -x wvkbd-mobintl
+    while pgrep -x wvkbd-mobintl >/dev/null; do sleep 0.05; done
+    if [[ -n $shown ]]; then start_wvkbd; else start_wvkbd --hidden; fi
+  fi
+  exit
+fi
+
 if [[ $1 == toggle ]]; then
   if [[ $OSK == squeekboard ]]; then
     if [[ $(osk_dbus get-property Visible) == "b true" ]]; then osk_hide; else osk_show; fi
@@ -67,7 +123,7 @@ pkill -x wvkbd-mobintl
 if [[ $OSK == squeekboard ]]; then
   squeekboard &
 else
-  "$OSK" --hidden -L 300 -H 400 &
+  start_wvkbd --hidden
 fi
 
 LAST=""
