@@ -4,8 +4,8 @@
 #   key-linger.patch      a tapped key stays lit (with its popup) for 150 ms after
 #                         the finger lifts; a tap lasts only a few frames otherwise
 #   key-preview.patch     the popup is a magnified preview above the key, as on
-#                         phone keyboards: bigger bubble, character at twice the
-#                         size, only for keys that type a character
+#                         phone keyboards: a slightly bigger bubble, the character
+#                         at 1.5x, only for keys that type a character
 # Build and install with:  makepkg -si
 #
 # Maintainer: Ash <xash at riseup d0t net>
@@ -13,7 +13,7 @@
 
 pkgname=wvkbd
 pkgver=0.20
-pkgrel=1.3
+pkgrel=1.4
 pkgdesc='On-screen keyboard for wlroots (touch fixes: held keys repeat, magnified key previews)'
 url='https://git.sr.ht/~proycon/wvkbd'
 arch=('x86_64' 'i686' 'armv7h' 'aarch64')
@@ -27,7 +27,7 @@ source=("$pkgname-$pkgver.tar.gz::https://git.sr.ht/~proycon/wvkbd/archive/v$pkg
 sha512sums=('1c5204dc00f7a3bdfd199dfa88b513c46249b7832ba546c0554940539fcc4e0d55303a9f6edd17dd82fd2893b602b86395202311b3ec851f5e8f41895f682371'
             'd36486e5e4e577cdeb89487143025e2147dea07f0304694650d7574a1ee02badaae62e0e90814200278565bf323e0af7a761ad5cbf902300fcb92d85107a788a'
             'b996032cde99d809ff2c4698df907fc6eb0da3e8a91e213bf15d5c3a72115b370e0f6db98a8470c1b611e0093fabfc8545b0b8f188442985c28f0d33b39e57a8'
-            '208fdbc486d7714a24661ff423f13ad140f8c923362e669f0214899a6e2d253eaf8a8f63adc41c15c4a2901d893dbbefcde0963534c0f7991257a130e59e19e8')
+            '8ce27b53ebf3194aab45492053b9640908e3ceb17c11e7795f5130980468b0ff29481e76ba37a0ec5d9e9816daeaebe015d104d7d88abc0eba4bf32431f805fb')
 
 prepare() {
   patch -d "$pkgname-v$pkgver" -p1 <hold-to-repeat.patch

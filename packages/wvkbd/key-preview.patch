@@ -1,5 +1,5 @@
 --- b/keyboard.c	2026-10-24 19:12:14.522390605 -0700
-+++ c/keyboard.c	2026-10-24 19:22:49.649895031 -0700
++++ c/keyboard.c	2026-10-24 19:28:55.543125406 -0700
 @@ -399,6 +399,10 @@
              kbd_switch_layout(kb, kb->last_abc_layout, kb->last_abc_index);
          } else if (unlatch_shift||unlatch_ctrl||unlatch_alt||unlatch_super||unlatch_altgr||unlatch_tab) {
@@ -11,7 +11,7 @@
          } else {
              // Leave it drawn pressed, popup up, for a moment.
              kbd_linger_end(kb);
-@@ -681,6 +685,74 @@
+@@ -681,6 +685,75 @@
      }
  }
  
@@ -41,18 +41,19 @@
 +    return points >= 1 && points <= 2;
 +}
 +
-+/* The magnified preview phone keyboards show for a pressed key: wider and
-+ * taller than the key, the character at twice the size, sitting just above
-+ * the key so the finger on it doesn't hide it. Drawn on the popup surface,
-+ * which reaches a keyboard's height above the keyboard. */
++/* The magnified preview phone keyboards show for a pressed key: a little
++ * wider and taller than the key, the character one and a half times the
++ * size, sitting just above the key so the finger on it doesn't hide it.
++ * Drawn on the popup surface, which reaches a keyboard's height above the
++ * keyboard. */
 +#define KBD_PREVIEW_GAP 6
 +
 +static void
 +kbd_draw_preview(struct kbd *kb, struct key *k, struct clr_scheme *scheme,
 +                 const char *label)
 +{
-+    int32_t w = k->w * 13 / 10;
-+    int32_t h = k->h * 14 / 10;
++    int32_t w = k->w * 11 / 10;
++    int32_t h = k->h * 23 / 20;
 +    int32_t x = (int32_t)k->x + (int32_t)k->w / 2 - w / 2;
 +    int32_t y = (int32_t)kb->h + (int32_t)k->y - h - KBD_PREVIEW_GAP;
 +    if (x + w > (int32_t)kb->w)
@@ -75,9 +76,9 @@
 +    PangoFontDescription *big = pango_font_description_copy(scheme->font_description);
 +    gint size = pango_font_description_get_size(big);
 +    if (pango_font_description_get_size_is_absolute(big))
-+        pango_font_description_set_absolute_size(big, size * 2);
++        pango_font_description_set_absolute_size(big, size * 3 / 2);
 +    else
-+        pango_font_description_set_size(big, size * 2);
++        pango_font_description_set_size(big, size * 3 / 2);
 +    drw_draw_text(kb->popup_surf, scheme->text, x, y, w, h, KBD_KEY_BORDER,
 +                  label, big);
 +    pango_font_description_free(big);
@@ -86,7 +87,7 @@
  void
  kbd_draw_key(struct kbd *kb, struct key *k, enum key_draw_type type)
  {
-@@ -722,22 +794,8 @@
+@@ -722,22 +795,8 @@
  
      if (kb->show_popup && (type == Press || type == Unpress)) {
          kbd_clear_last_popup(kb);
