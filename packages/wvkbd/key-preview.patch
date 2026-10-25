@@ -1,0 +1,113 @@
+--- b/keyboard.c	2026-10-24 19:12:14.522390605 -0700
++++ c/keyboard.c	2026-10-24 19:22:49.649895031 -0700
+@@ -399,6 +399,10 @@
+             kbd_switch_layout(kb, kb->last_abc_layout, kb->last_abc_index);
+         } else if (unlatch_shift||unlatch_ctrl||unlatch_alt||unlatch_super||unlatch_altgr||unlatch_tab) {
+             kbd_draw_layout(kb);
++            // Drawn afresh, unshifted; the preview of the key just typed
++            // (a capital letter, say) stays up a moment all the same.
++            kb->linger_key = kb->last_press;
++            kbd_linger_arm(kb, KBD_LINGER_MS);
+         } else {
+             // Leave it drawn pressed, popup up, for a moment.
+             kbd_linger_end(kb);
+@@ -681,6 +685,74 @@
+     }
+ }
+ 
++/* Whether a key gets a magnified preview when pressed, as on phone keyboards:
++ * keys that type a character (letter, digit, symbol, accented letter, emoji),
++ * not space, Enter, Backspace, Tab, Esc, the arrows, modifiers or layout keys. */
++static bool
++kbd_key_previews(struct key *k, const char *label)
++{
++    if (k->type != Code && k->type != Copy)
++        return false;
++    if (k->type == Code) {
++        switch (k->code) {
++        case KEY_SPACE: case KEY_ENTER: case KEY_BACKSPACE: case KEY_TAB:
++        case KEY_ESC: case KEY_UP: case KEY_DOWN: case KEY_LEFT: case KEY_RIGHT:
++        case KEY_HOME: case KEY_END: case KEY_PAGEUP: case KEY_PAGEDOWN:
++        case KEY_DELETE:
++            return false;
++        }
++    }
++    // One or two code points: a character, or an emoji with its variation
++    // selector. Word labels ("Esc", "Cmp") are not characters to preview.
++    int points = 0;
++    for (const unsigned char *c = (const unsigned char *)label; *c; c++)
++        if ((*c & 0xC0) != 0x80)
++            points++;
++    return points >= 1 && points <= 2;
++}
++
++/* The magnified preview phone keyboards show for a pressed key: wider and
++ * taller than the key, the character at twice the size, sitting just above
++ * the key so the finger on it doesn't hide it. Drawn on the popup surface,
++ * which reaches a keyboard's height above the keyboard. */
++#define KBD_PREVIEW_GAP 6
++
++static void
++kbd_draw_preview(struct kbd *kb, struct key *k, struct clr_scheme *scheme,
++                 const char *label)
++{
++    int32_t w = k->w * 13 / 10;
++    int32_t h = k->h * 14 / 10;
++    int32_t x = (int32_t)k->x + (int32_t)k->w / 2 - w / 2;
++    int32_t y = (int32_t)kb->h + (int32_t)k->y - h - KBD_PREVIEW_GAP;
++    if (x + w > (int32_t)kb->w)
++        x = (int32_t)kb->w - w;
++    if (x < 0)
++        x = 0;
++    if (y < 0)
++        y = 0;
++    int rounding = scheme->rounding * 2 + 6;
++
++    kb->last_popup_x = x;
++    kb->last_popup_y = y;
++    kb->last_popup_w = w;
++    kb->last_popup_h = h;
++
++    // An outline in the keyboard's colour around a key-coloured bubble.
++    drw_fill_rectangle(kb->popup_surf, scheme->bg, x, y, w, h, rounding);
++    draw_inset(kb->popup_surf, x, y, w, h, KBD_KEY_BORDER, scheme->fg, rounding);
++
++    PangoFontDescription *big = pango_font_description_copy(scheme->font_description);
++    gint size = pango_font_description_get_size(big);
++    if (pango_font_description_get_size_is_absolute(big))
++        pango_font_description_set_absolute_size(big, size * 2);
++    else
++        pango_font_description_set_size(big, size * 2);
++    drw_draw_text(kb->popup_surf, scheme->text, x, y, w, h, KBD_KEY_BORDER,
++                  label, big);
++    pango_font_description_free(big);
++}
++
+ void
+ kbd_draw_key(struct kbd *kb, struct key *k, enum key_draw_type type)
+ {
+@@ -722,22 +794,8 @@
+ 
+     if (kb->show_popup && (type == Press || type == Unpress)) {
+         kbd_clear_last_popup(kb);
+-
+-        kb->last_popup_x = k->x;
+-        kb->last_popup_y = kb->h + k->y - k->h;
+-        kb->last_popup_w = k->w;
+-        kb->last_popup_h = k->h;
+-
+-        drw_fill_rectangle(kb->popup_surf, scheme->bg, k->x,
+-                           kb->last_popup_y, k->w, k->h, scheme->rounding);
+-        draw_inset(kb->popup_surf, k->x, kb->last_popup_y, k->w, k->h,
+-                   KBD_KEY_BORDER,
+-                   kb->show_highlight ? scheme->high : scheme->fg,
+-                   scheme->rounding);
+-        drw_draw_text(kb->popup_surf,
+-                      kb->show_highlight ? scheme->text_press : scheme->text,
+-                      k->x, kb->last_popup_y, k->w, k->h, KBD_KEY_BORDER, label,
+-                      scheme->font_description);
++        if (kbd_key_previews(k, label))
++            kbd_draw_preview(kb, k, scheme, label);
+     }
+ }
+ 
