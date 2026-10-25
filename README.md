@@ -119,6 +119,22 @@ git clone <this repo> ~/surface-tablet
 - `~/.config/chromium-flags.conf`: `--enable-wayland-ime --wayland-text-input-version=3`
 - `~/.config/omarchy/shell.json`: enables the plugins, adds the bar buttons
 
+## Camera hardware
+
+| Part | Hardware | Driver (kernel module) |
+|---|---|---|
+| Camera interface | Intel IPU3 CSI-2 receiver | `ipu3-cio2`, plus `ipu_bridge`, which wires the sensors up from ACPI |
+| Image processor | Intel IPU3 ImgU | `ipu3-imgu` + firmware `intel/irci_irci_ecr-master_20161208_0213_20170112_1500.bin` (from `linux-firmware`) |
+| Front camera | OV5693 (ACPI `INT33BE`) | `ov5693` |
+| Back camera | OV8865 (ACPI `INT347A`) | `ov8865` (our rebuilt copy in `updates/`) |
+| Back autofocus | DW9719 lens motor | `dw9719` |
+| Infrared camera | OV7251 (ACPI `INT347E`) | `ov7251` (libcamera doesn't support it) |
+| Camera power | three INT3472 devices | `int3472-discrete` (GPIO-switched) |
+| Apps | libcamera with the IPU3 pipeline and generic tuning | `libcamera`, `libcamera-ipa`, `pipewire-libcamera` |
+
+All the kernel drivers come with the linux-surface kernel and the firmware with
+`linux-firmware`; there are no separate driver packages.
+
 ## Notes
 - Service plugins (gestures) only reload with `omarchy restart shell`.
 - `tools/taplog.py` (run with sudo) logs touch events, for debugging lag.
