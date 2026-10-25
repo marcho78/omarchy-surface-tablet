@@ -128,7 +128,7 @@ o.bind("SUPER + SHIFT + K", "On-screen keyboard", os.getenv("HOME") .. "/.local/
   if [[ -f $json ]]; then
     tmp=$(mktemp)
     jq '
-      reduce ("devsecai.control-center", "devsecai.gestures", "devsecai.notification-center") as $id
+      reduce ("devsecai.control-center", "devsecai.gestures", "devsecai.notification-center", "devsecai.app-drawer") as $id
         (.; if any((.plugins // [])[]; .id == $id) then . else .plugins = ((.plugins // []) + [{ id: $id }]) end)
     ' "$json" >"$tmp" && mv "$tmp" "$json"
   fi

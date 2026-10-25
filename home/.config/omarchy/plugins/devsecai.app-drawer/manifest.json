@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.app-drawer",
+  "name": "App Drawer",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Full-screen touch app drawer for tablet mode: search, suggestions, every app in a grid. Toggle with: omarchy-shell shell toggle devsecai.app-drawer",
+  "kinds": [
+    "menu"
+  ],
+  "entryPoints": {
+    "menu": "Drawer.qml"
+  }
+}

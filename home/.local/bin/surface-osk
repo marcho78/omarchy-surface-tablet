@@ -5,6 +5,7 @@
 # Only acts when the cover state changes, so manual switches stick until then.
 #   surface-osk          run the watcher (started from autostart.lua)
 #   surface-osk toggle   show/hide the keyboard manually
+#   surface-osk show|hide
 #   surface-osk set style standard|full|simple
 #   surface-osk set size small|medium|large
 #                        change the wvkbd layout; saved in $SETTINGS
@@ -116,6 +117,11 @@ if [[ $1 == set ]]; then
   fi
   exit
 fi
+
+case $1 in
+  show) osk_show; exit ;;
+  hide) osk_hide; exit ;;
+esac
 
 if [[ $1 == toggle ]]; then
   if [[ $OSK == squeekboard ]]; then

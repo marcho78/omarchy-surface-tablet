@@ -7,7 +7,7 @@ import qs.Commons
 
 // Edge swipes for tablet mode, iPad style:
 //   bottom edge, short swipe up      -> reveal the dock
-//   bottom edge, long swipe up       -> Home (tuck apps away, show the app grid)
+//   bottom edge, long swipe up       -> app drawer (over whatever is open)
 //   bottom-right corner, swipe up    -> on-screen keyboard
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
@@ -190,7 +190,7 @@ Item {
         var up = startY - mouse.y
         if (up < root.swipeMin) return
         if (startX > width * 0.82) root.toggleKeyboard()
-        else if (up > root.screenH * root.homeFraction) root.run(root.home + "/.local/bin/tablet-mode home")
+        else if (up > root.screenH * root.homeFraction) root.run("omarchy-shell shell toggle devsecai.app-drawer")
         else root.showDock()
       }
     }
