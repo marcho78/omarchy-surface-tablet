@@ -51,6 +51,16 @@ Item {
     }
   }
 
+  // Uber TV (marcho78.om-pg) installed: the Media Center tile shows.
+  property bool mediaCenter: false
+
+  FileView {
+    path: root.home + "/.config/omarchy/plugins/marcho78.om-pg/manifest.json"
+    printErrors: false
+    onLoaded: root.mediaCenter = true
+    onLoadFailed: root.mediaCenter = false
+  }
+
   readonly property var battery: UPower.displayDevice
   readonly property int batteryPercent: battery && battery.isPresent ? Math.round(battery.percentage * 100) : -1
   readonly property bool charging: !!battery && (battery.state === UPowerDeviceState.Charging
@@ -350,6 +360,16 @@ Item {
               subtitle: "Exit tablet"
               onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
             }
+          }
+
+          // Uber TV's bar icon is hidden in tablet mode, so it opens from here.
+          Tile {
+            width: parent.width
+            visible: root.mediaCenter
+            icon: String.fromCodePoint(0xf040c)
+            title: "Media Center"
+            subtitle: "Uber TV"
+            onTapped: root.runAndClose("omarchy-shell shell summon marcho78.om-pg")
           }
 
           PillSlider {

@@ -85,14 +85,15 @@ git clone <this repo> ~/surface-tablet
   Voxtype's 0.8 s tick, so it fell behind and stuck. `./install.sh --voice` sets both up.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`. Swaps in the tablet bar
   (clock, workspaces with O-Spotlight's search icon beside them, status pill), carries
-  Stage Control's and O-Spotlight's bar entries over and their settings back, and reloads
-  the shell's plugins after each switch (they only see bar settings change then).
+  Stage Control's, O-Spotlight's and Uber TV's bar entries over and their settings back,
+  and reloads the shell's plugins after each switch (they only see bar settings change
+  then).
 - `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
-    volume, brightness, ...)
+    volume, brightness, ...), with a Media Center tile that opens Uber TV when it is installed
   - `devsecai.gestures`: edge swipes (bottom: by distance, shown live while swiping:
     a little = dock (only while the dock is set to auto-hide), partway (to 45% of the
     screen) = Stage Control, further (to 62%) = Search (O-Spotlight), far = app drawer;
@@ -128,8 +129,13 @@ git clone <this repo> ~/surface-tablet
   on-screen keyboard opens and closes with it, the search fits above the keyboard (and
   follows it when you put it away), no hover-only controls, long-press the magnifying glass
   in its search field for settings, keyboard-shortcut hints hidden, keyboard focus on demand.
+- `marcho78.om-pg` (Uber TV): media center for YouTube, IPTV, its guide and apps.
+  `Super+Alt+T` or its bar button (a play icon, so it doesn't look like the bar's display
+  and laptop icons) docked; in tablet mode the Control Center's Media Center tile, with
+  its bar icon hidden: its bar button now also hides when its bar entry has
+  `"barIcon": false`, which the tablet bar sets.
 - The touch-mode changes are local edits in those plugins' own git repos; they follow
-  tablet mode through `~/.local/state/tablet-mode/state`.
+  tablet mode through `~/.local/state/tablet-mode/state` (Uber TV's through its bar entry).
 
 **Patched** (a few lines added to files that hold your own settings)
 - `~/.config/hypr/hyprland.lua`: `tablet.before()` / `tablet.after()` around Omarchy's defaults

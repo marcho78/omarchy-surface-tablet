@@ -123,14 +123,15 @@ set_bar_layout() {
 # Plugins are handed bar settings only when the shell's plugin list changes,
 # not when shell.json does, so after a bar swap they're reloaded to pick up
 # theirs (O-Spotlight's and Stage Control's icons differ between the bars).
+# Uber TV's icon follows its bar entry directly.
 reload_plugins() {
   omarchy-shell -q shell rescanPlugins >/dev/null 2>&1
 }
 
-# Stage Control and O-Spotlight only run while their entries are in the bar,
-# and keep their settings on those entries.
+# Stage Control, O-Spotlight and Uber TV (marcho78.om-pg) only run while their
+# entries are in the bar, and keep their settings on those entries.
 PLUGIN_ENTRIES='[.bar.layout[] | arrays | .[]
-  | select(.id == "marcho78.stage-control" or .id == "marcho78.o-spotlight")]'
+  | select(.id == "marcho78.stage-control" or .id == "marcho78.o-spotlight" or .id == "marcho78.om-pg")]'
 
 # The dock keeps its own setting (Always show / Auto-hide, `omarchy dock
 # autohide`); an auto-hidden dock comes up with a swipe from the bottom edge
@@ -139,12 +140,13 @@ use_tablet_bar() {
   jq '.bar.layout' "$SHELL_JSON" >"$SAVED_BAR" || return
   # Carry those entries over: O-Spotlight's search icon in the middle, by the
   # workspaces, where a tap reaches it (the bar's sides are pull-down strips);
-  # Stage Control's icon hidden.
+  # Stage Control's and Uber TV's icons hidden (the bottom swipe and the
+  # Control Center open them).
   local entries
   entries=$(jq -c "$PLUGIN_ENTRIES" "$SHELL_JSON")
   set_bar_layout "$(jq -c --argjson e "${entries:-[]}" '
     .centerEnd += [$e[] | select(.id == "marcho78.o-spotlight") | . + {barIcon: true}]
-    | .right += [$e[] | select(.id == "marcho78.stage-control") | . + {barIcon: false}]' <<<"$TABLET_BAR")"
+    | .right += [$e[] | select(.id == "marcho78.stage-control" or .id == "marcho78.om-pg") | . + {barIcon: false}]' <<<"$TABLET_BAR")"
   # A taller bar (this is scaled up again by the text size).
   printf '\n# tablet-mode begin\n[bar]\nsize-horizontal = 34\n# tablet-mode end\n' >>"$SHELL_TOML"
 }
