@@ -276,17 +276,21 @@ Item {
     shown: root.opened
     WlrLayershell.namespace: "devsecai-notification-center"
 
-    // Tap beside the notifications, or swipe up, to close.
+    // Tap beside the notifications (the bar's strip included), or swipe up,
+    // to close.
+    SwipeUpArea {
+      anchors.fill: parent
+      onClicked: root.dismiss()
+    }
+
+    // The dimmed, frosted backdrop starts below the bar, so the bar stays put
+    // and readable above the Notification Center.
     Rectangle {
       anchors.fill: parent
+      anchors.topMargin: Style.bar.sizeHorizontal
       color: "black"
       opacity: root.opened ? 0.45 : 0
       Behavior on opacity { NumberAnimation { duration: 200 } }
-
-      SwipeUpArea {
-        anchors.fill: parent
-        onClicked: root.dismiss()
-      }
     }
 
     Item {
