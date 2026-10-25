@@ -45,6 +45,7 @@ install_system() {
 
   say "Lower touch latency (iptsd)"
   sudo install -Dm644 "$REPO/system/etc/iptsd.d/10-low-latency.conf" /etc/iptsd.d/10-low-latency.conf
+  sudo install -Dm644 "$REPO/system/etc/iptsd.d/20-tracking.conf" /etc/iptsd.d/20-tracking.conf
   sudo systemctl restart 'iptsd@*' 2>/dev/null || true
 
   say "Touch patches for the Omarchy shell (kept across Omarchy updates)"

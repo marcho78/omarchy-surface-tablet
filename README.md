@@ -23,6 +23,9 @@ git clone <this repo> ~/surface-tablet
 - `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
   then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
 - `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
+- `/etc/iptsd.d/20-tracking.conf`: `AspectMax = 4`. A fast-moving finger smears into a longer
+  blob; at the default 2.5 iptsd dropped it mid-drag, so swipes arrived as several short
+  touches (pull-downs failed; pieces landed as taps, e.g. accepting word suggestions).
 - Cameras: `libcamera`, `libcamera-ipa`, `libcamera-tools` (`cam -l`) and `pipewire-libcamera`
   (apps) drive the front (OV5693) and back (OV8865) cameras; the IR camera isn't supported.
   The back camera came out black: the sensor's black level target defaults to 16 while
