@@ -29,6 +29,15 @@ Item {
   property var allApps: []
   property var recentIds: []
   property bool keyboardShown: false
+  property bool tablet: false
+
+  FileView {
+    path: root.home + "/.local/state/tablet-mode/state"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.tablet = text().trim() === "on"
+  }
 
   readonly property int suggestionCount: Math.min(columns, 6)
   // Suggestions load just after the drawer opens; the header grows then, so
@@ -154,17 +163,23 @@ Item {
     shownLayer: WlrLayer.Top
     WlrLayershell.namespace: "devsecai-app-drawer"
 
-    // Tap outside the grid to close.
+    // Tap outside the grid to close (the bar's strip included).
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.dismiss()
+    }
+
+    // The drawer's own background, in the theme's colour, so it reads as a
+    // screen of its own rather than icons over an app. It starts below the
+    // bar, which stays readable above it like a phone's status bar. Opaque
+    // in desktop mode; in tablet mode a little of Hyprland's blur shows
+    // through, which smooths what is behind into a wash rather than text.
     Rectangle {
       anchors.fill: parent
-      color: "black"
-      opacity: root.opened ? 0.35 : 0
+      anchors.topMargin: Style.bar.sizeHorizontal
+      color: Color.background
+      opacity: root.opened ? (root.tablet ? 0.9 : 1) : 0
       Behavior on opacity { NumberAnimation { duration: 220 } }
-
-      MouseArea {
-        anchors.fill: parent
-        onClicked: root.dismiss()
-      }
     }
 
     Item {
@@ -197,7 +212,7 @@ Item {
           anchors.leftMargin: 18
           anchors.verticalCenter: parent.verticalCenter
           text: "󰍉"
-          color: "white"
+          color: Color.foreground
           opacity: 0.75
           font.family: Style.font.family
           font.pixelSize: 20
@@ -210,7 +225,7 @@ Item {
           anchors.right: clearButton.left
           anchors.rightMargin: 8
           anchors.verticalCenter: parent.verticalCenter
-          color: "white"
+          color: Color.foreground
           selectionColor: Color.accent
           font.family: Style.font.family
           font.pixelSize: 17
@@ -231,7 +246,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             visible: search.text === ""
             text: "Search apps"
-            color: "white"
+            color: Color.foreground
             opacity: 0.55
             font: search.font
           }
@@ -254,7 +269,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           visible: search.text !== ""
           text: "󰅙"
-          color: "white"
+          color: Color.foreground
           opacity: 0.7
           font.family: Style.font.family
           font.pixelSize: 20
@@ -309,7 +324,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width - 32
             height: 1
-            color: "white"
+            color: Color.foreground
             opacity: 0.15
           }
 
@@ -326,12 +341,25 @@ Item {
           onTapped: root.launch(modelData)
         }
 
+        // Rows fade out at the bottom edge instead of being cut through.
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: 56
+          z: 10
+          gradient: Gradient {
+            GradientStop { position: 0; color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0) }
+            GradientStop { position: 1; color: Color.background }
+          }
+        }
+
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           y: 60
           visible: root.apps.length === 0 && root.query !== ""
           text: "No apps match “" + root.query + "”"
-          color: "white"
+          color: Color.foreground
           opacity: 0.7
           font.family: Style.font.family
           font.pixelSize: 15

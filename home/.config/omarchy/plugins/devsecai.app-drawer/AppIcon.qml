@@ -48,7 +48,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: (cell.name.charAt(0) || "?").toUpperCase()
-          color: "white"
+          color: Color.foreground
           font.family: Style.font.family
           font.pixelSize: cell.iconSize * 0.42
           font.bold: true
@@ -62,9 +62,7 @@ Item {
       text: cell.name
       elide: Text.ElideRight
       maximumLineCount: 1
-      color: "white"
-      style: Text.Raised
-      styleColor: Qt.rgba(0, 0, 0, 0.45)
+      color: Color.foreground
       font.family: Style.font.family
       font.pixelSize: 13
     }
