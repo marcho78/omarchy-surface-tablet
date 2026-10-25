@@ -31,7 +31,7 @@ install_system() {
   say "Packages: surface kernel, touch daemon, on-screen keyboards"
   sudo pacman -Syu --needed linux-surface linux-surface-headers iptsd squeekboard
   # Fallback keyboard: the AUR package, patched so held keys repeat on touch.
-  if [[ $(pacman -Q wvkbd 2>/dev/null) != "wvkbd 0.20-1.9" ]]; then
+  if [[ $(pacman -Q wvkbd 2>/dev/null) != "wvkbd 0.20-1.10" ]]; then
     (cd "$REPO/packages/wvkbd" && makepkg -si --noconfirm --needed)
   fi
 

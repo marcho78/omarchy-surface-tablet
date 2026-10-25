@@ -17,7 +17,7 @@
 
 pkgname=wvkbd
 pkgver=0.20
-pkgrel=1.9
+pkgrel=1.10
 pkgdesc='On-screen keyboard for wlroots (touch fixes: held keys repeat, magnified key previews)'
 url='https://git.sr.ht/~proycon/wvkbd'
 arch=('x86_64' 'i686' 'armv7h' 'aarch64')
@@ -33,7 +33,7 @@ sha512sums=('1c5204dc00f7a3bdfd199dfa88b513c46249b7832ba546c0554940539fcc4e0d553
             'd36486e5e4e577cdeb89487143025e2147dea07f0304694650d7574a1ee02badaae62e0e90814200278565bf323e0af7a761ad5cbf902300fcb92d85107a788a'
             'b996032cde99d809ff2c4698df907fc6eb0da3e8a91e213bf15d5c3a72115b370e0f6db98a8470c1b611e0093fabfc8545b0b8f188442985c28f0d33b39e57a8'
             '8ce27b53ebf3194aab45492053b9640908e3ceb17c11e7795f5130980468b0ff29481e76ba37a0ec5d9e9816daeaebe015d104d7d88abc0eba4bf32431f805fb'
-            'ceec3ac064e762cb72c16baa9f6359709f2926e5bef531c64e614b20cd6881f794d15f74db8eef029944795b07a19b840f12f267e82efebccede96c9a7eba598')
+            'ab9720b014920480c6c9dff391531822dad005b02a1d2ac66e468c1f72c02c827c87a00965b626aeb1d9f6792d4487a69a89dd7adb44cf4bf222d4eb00a14b2e')
 
 prepare() {
   # The Makefile makes build-mobintl/config.h only when it is missing, so one
