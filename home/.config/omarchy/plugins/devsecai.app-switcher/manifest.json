@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.app-switcher",
+  "name": "App Switcher",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Touch app switcher for tablet mode: every open window as a live card; tap to switch, swipe up to close. Open with: omarchy-shell shell summon devsecai.app-switcher",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Switcher.qml"
+  }
+}

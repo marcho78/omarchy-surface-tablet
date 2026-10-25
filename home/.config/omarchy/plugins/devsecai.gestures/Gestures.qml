@@ -8,6 +8,7 @@ import qs.Commons
 // Edge swipes for tablet mode, iPad style:
 //   bottom edge, short swipe up      -> reveal the dock
 //   bottom edge, long swipe up       -> app drawer (over whatever is open)
+//   bottom edge, swipe up and hold   -> app switcher (every open window)
 //   bottom-right corner, swipe up    -> on-screen keyboard
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
@@ -30,6 +31,8 @@ Item {
   // How far a finger must travel to count, in logical px.
   readonly property int swipeMin: 24
   readonly property real homeFraction: 0.3
+  // How far up a swipe must be before holding it still opens the switcher.
+  readonly property real holdFraction: 0.12
 
   FileView {
     path: root.home + "/.local/state/tablet-mode/state"
@@ -180,18 +183,48 @@ Item {
 
       property real startX: 0
       property real startY: 0
+      // Where the finger last moved, and whether holding it still there
+      // already opened the app switcher.
+      property real stillX: 0
+      property real stillY: 0
+      property bool held: false
 
       onPressed: function(mouse) {
-        startX = mouse.x
-        startY = mouse.y
+        startX = stillX = mouse.x
+        startY = stillY = mouse.y
+        held = false
+        holdStill.stop()
+      }
+
+      // Swiped well up off the edge and then held still: the app switcher,
+      // as on iOS and Android. Small wobbles of a resting finger don't count
+      // as moving.
+      onPositionChanged: function(mouse) {
+        if (held || startX > width * 0.82) return
+        if (Math.abs(mouse.x - stillX) < 8 && Math.abs(mouse.y - stillY) < 8) return
+        stillX = mouse.x
+        stillY = mouse.y
+        if (startY - mouse.y > root.screenH * root.holdFraction) holdStill.restart()
+        else holdStill.stop()
       }
 
       onReleased: function(mouse) {
+        holdStill.stop()
+        if (held) return
         var up = startY - mouse.y
         if (up < root.swipeMin) return
         if (startX > width * 0.82) root.toggleKeyboard()
         else if (up > root.screenH * root.homeFraction) root.run("omarchy-shell shell toggle devsecai.app-drawer")
         else root.showDock()
+      }
+
+      Timer {
+        id: holdStill
+        interval: 280
+        onTriggered: {
+          swipe.held = true
+          root.run("omarchy-shell shell summon devsecai.app-switcher")
+        }
       }
     }
   }

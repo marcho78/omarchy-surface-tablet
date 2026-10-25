@@ -1,21 +1,27 @@
 #!/bin/bash
-# Bring an app to the front by name, for a tapped notification: focus its
-# window, first bringing it back if it was minimized to the dock. Matches the
-# window class, then the title (web apps carry their name there).
-#   tablet-open-app <app-name>
+# Bring an app's window to the front, first bringing it back if it was
+# minimized to the dock.
+#   tablet-open-app <app-name>          by name, for a tapped notification:
+#                                       matches the window class, then the title
+#                                       (web apps carry their name there)
+#   tablet-open-app --address <address> one window exactly, for the app switcher
 
-app=${1:-}
-[[ -n $app ]] || { echo "Usage: tablet-open-app <app-name>" >&2; exit 1; }
+if [[ $1 == --address ]]; then
+  query='first(.[] | select(.address == $want))'
+  want=${2:-}
+else
+  query='def matches($value): ($value // "") | ascii_downcase | contains($want | ascii_downcase);
+         sort_by(.focusHistoryID)
+         | first((.[] | select(matches(.class) or matches(.initialClass))),
+                 (.[] | select(matches(.title))))'
+  want=${1:-}
+fi
+[[ -n $want ]] || { echo "Usage: tablet-open-app <app-name> | --address <address>" >&2; exit 1; }
 
 read -r address workspace from < <(
   hyprctl clients -j 2>/dev/null |
-    jq -r --arg app "$app" '
-      def matches($value): ($value // "") | ascii_downcase | contains($app | ascii_downcase);
-      sort_by(.focusHistoryID)
-      | first((.[] | select(matches(.class) or matches(.initialClass))),
-              (.[] | select(matches(.title))))
-      | "\(.address) \(.workspace.name) \(((.tags // []) | map(select(startswith("omarchy-minimized-from-"))) | first // "") | ltrimstr("omarchy-minimized-from-"))"
-    '
+    jq -r --arg want "$want" "$query"'
+      | "\(.address) \(.workspace.name) \(((.tags // []) | map(select(startswith("omarchy-minimized-from-"))) | first // "") | ltrimstr("omarchy-minimized-from-"))"'
 )
 
 [[ -n $address && $address != null ]] || exit 1
