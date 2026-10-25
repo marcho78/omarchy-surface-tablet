@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "devsecai.notification-center",
+  "name": "Notification Center",
+  "version": "1.0.0",
+  "author": "devsecai",
+  "description": "Touch notification center for tablet mode: grouped history, swipe to dismiss, tap to open. Toggle with: omarchy-shell shell toggle devsecai.notification-center",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

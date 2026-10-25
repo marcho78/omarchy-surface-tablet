@@ -41,7 +41,11 @@ git clone <this repo> ~/surface-tablet
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard,
     volume, brightness, ...)
   - `devsecai.gestures`: edge swipes (bottom: dock / Home, bottom-right: keyboard,
-    top-right pull-down: Control Center, top-left pull-down: notifications) and the keyboard dismiss tab
+    top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
+  - `devsecai.notification-center`: Notification Center (pull down on the left of the
+    tablet bar): Omarchy's notification history grouped by app, tap to open the app
+    (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to
+    dismiss, two-tap Clear All, Do Not Disturb; frosted-glass background
   - `devsecai.tablet-clock`, `devsecai.tablet-status`: tablet bar widgets
   - `devsecai.osk`, `devsecai.tablet`: desktop bar buttons (keyboard, tablet mode)
 

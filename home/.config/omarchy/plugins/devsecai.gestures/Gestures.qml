@@ -10,7 +10,7 @@ import qs.Commons
 //   bottom edge, long swipe up       -> Home (tuck apps away, show the app grid)
 //   bottom-right corner, swipe up    -> on-screen keyboard
 //   top edge, right side, pull down  -> Control Center
-//   top edge, left side, pull down   -> recent notifications
+//   top edge, left side, pull down   -> Notification Center
 // The dock reveals when the pointer reaches the screen edge, so revealing it
 // warps the (hidden) pointer there, and tucking it away warps it back.
 Item {
@@ -242,7 +242,7 @@ Item {
   // ------------------------------------------------------------ top edge
 
   // The tablet bar is for reading, not tapping: pull down on its right side for
-  // the Control Center, on its left side for recent notifications. The middle
+  // the Control Center, on its left side for the Notification Center. The middle
   // (workspaces) stays tappable. Fires as soon as the finger has pulled far
   // enough, without waiting for it to lift.
   readonly property int barHeight: Math.max(Style.bar.sizeHorizontal, 30)
@@ -306,6 +306,6 @@ Item {
 
   PullDown {
     right: false
-    command: "omarchy-shell -q notifications showHistory"
+    command: "omarchy-shell shell toggle devsecai.notification-center"
   }
 }

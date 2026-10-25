@@ -120,9 +120,16 @@ o.bind("SUPER + SHIFT + K", "On-screen keyboard", os.getenv("HOME") .. "/.local/
     cp "$json" "$json.bak.$STAMP"
     tmp=$(mktemp)
     jq '
-      .plugins = ((.plugins // []) + [{ id: "devsecai.control-center" }, { id: "devsecai.gestures" }])
-      | .bar.layout.right = ([{ id: "devsecai.osk" }] + (.bar.layout.right // []))
+      .bar.layout.right = ([{ id: "devsecai.osk" }] + (.bar.layout.right // []))
       | .bar.layout.right |= (.[:2] + [{ id: "devsecai.tablet" }] + .[2:])
+    ' "$json" >"$tmp" && mv "$tmp" "$json"
+  fi
+  # Panels and services, each added once (so later additions reach old installs).
+  if [[ -f $json ]]; then
+    tmp=$(mktemp)
+    jq '
+      reduce ("devsecai.control-center", "devsecai.gestures", "devsecai.notification-center") as $id
+        (.; if any((.plugins // [])[]; .id == $id) then . else .plugins = ((.plugins // []) + [{ id: $id }]) end)
     ' "$json" >"$tmp" && mv "$tmp" "$json"
   fi
   omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true

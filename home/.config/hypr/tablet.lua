@@ -151,6 +151,24 @@ function M.after()
   hl.animation({ leaf = "layersIn", enabled = true, speed = 3, bezier = "tabletGlide", style = "slide" })
   hl.animation({ leaf = "layersOut", enabled = true, speed = 2.2, bezier = "tabletAway", style = "slide" })
 
+  -- Frosted glass behind the Notification Center and Control Center, as on an
+  -- iPad. Only see-through surfaces get blurred, and these are the only ones.
+  hl.config({
+    decoration = {
+      blur = {
+        enabled = true,
+        size = 10,
+        passes = 3,
+        new_optimizations = true,
+        xray = false,
+        brightness = 0.7,
+        vibrancy = 0.3,
+        noise = 0.01,
+      },
+    },
+  })
+  hl.layer_rule({ match = { namespace = "^devsecai-(notification-center|control-center)$" }, blur = true, ignore_alpha = 0.05 })
+
   -- The keyboard and its hide tab slide up from the bottom edge together.
   -- The Control Center animates itself, and the swipe strips are invisible.
   hl.layer_rule({ match = { namespace = "^(wvkbd|osk|devsecai-osk-dismiss)$" }, animation = "slide" })

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Bring an app to the front by name, for a tapped notification: focus its
+# window, first bringing it back if it was minimized to the dock. Matches the
+# window class, then the title (web apps carry their name there).
+#   tablet-open-app <app-name>
+
+app=${1:-}
+[[ -n $app ]] || { echo "Usage: tablet-open-app <app-name>" >&2; exit 1; }
+
+read -r address workspace from < <(
+  hyprctl clients -j 2>/dev/null |
+    jq -r --arg app "$app" '
+      def matches($value): ($value // "") | ascii_downcase | contains($app | ascii_downcase);
+      sort_by(.focusHistoryID)
+      | first((.[] | select(matches(.class) or matches(.initialClass))),
+              (.[] | select(matches(.title))))
+      | "\(.address) \(.workspace.name) \(((.tags // []) | map(select(startswith("omarchy-minimized-from-"))) | first // "") | ltrimstr("omarchy-minimized-from-"))"
+    '
+)
+
+[[ -n $address && $address != null ]] || exit 1
+
+# Minimized windows wait on special:minimized, tagged with where they came from.
+if [[ $workspace == special:minimized ]]; then
+  target=${from:-$(hyprctl activeworkspace -j | jq -r .id)}
+  hyprctl dispatch "hl.dsp.window.move({ workspace = \"$target\", follow = true, window = \"address:$address\" })" >/dev/null
+  [[ -n $from ]] && hyprctl dispatch "hl.dsp.window.tag({ tag = \"-omarchy-minimized-from-$from\", window = \"address:$address\" })" >/dev/null
+  omarchy-shell -q omarchy.dock refresh >/dev/null 2>&1
+fi
+
+hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null
