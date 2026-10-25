@@ -16,7 +16,8 @@ git clone <this repo> ~/surface-tablet
 **System** (needs sudo)
 - linux-surface pacman repo and signing key; packages `linux-surface`,
   `linux-surface-headers`, `iptsd`, `squeekboard`, and `wvkbd` built from
-  `packages/wvkbd` (the AUR package plus a patch so a held key, like Backspace, repeats).
+  `packages/wvkbd` (the AUR package plus touch patches: a held key such as Backspace
+  repeats, and a tapped key stays lit for 150 ms so you can see it).
 - `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
   then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
 - `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
