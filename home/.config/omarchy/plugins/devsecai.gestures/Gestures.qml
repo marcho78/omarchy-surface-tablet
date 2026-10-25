@@ -44,16 +44,29 @@ Item {
   readonly property real switcherFraction: 0.45
   readonly property real searchFraction: 0.62
 
-  // What letting go of the current bottom swipe would do. Once a swipe has
-  // started, coming back down to the bottom keeps the dock (the lowest choice)
-  // rather than dropping out under swipeMin; without the dock it cancels.
+  // The choice at a height up from the bottom edge.
+  function zoneAt(up) {
+    if (dockAutohide && up < screenH * dockFraction) return "dock"
+    if (up < screenH * switcherFraction) return "switcher"
+    if (up < screenH * searchFraction) return "search"
+    return "drawer"
+  }
+
+  // On the way back down, each swipeStep below the highest point reached steps
+  // one choice lower (about a row of the hint), so Stage Control to Dock is a
+  // short slide rather than all the way back to the bottom band.
+  readonly property int swipeStep: 50
+
+  // What letting go of the current bottom swipe would do. Going up it follows
+  // the zones; coming back down it steps down from the highest one reached,
+  // ending on the dock (the lowest choice) rather than dropping out under
+  // swipeMin; without the dock, back under swipeMin cancels.
   readonly property string swipeTarget: {
     if (!swipe.pressed || swipe.forKeyboard || !swipe.armed) return ""
-    if (dockAutohide && swipe.up < screenH * dockFraction) return "dock"
-    if (swipe.up < swipeMin) return ""
-    if (swipe.up < screenH * switcherFraction) return "switcher"
-    if (swipe.up < screenH * searchFraction) return "search"
-    return "drawer"
+    if (!dockAutohide && swipe.up < swipeMin) return ""
+    var order = (dockAutohide ? ["dock"] : []).concat(["switcher", "search", "drawer"])
+    var steps = Math.floor((swipe.peak - swipe.up) / swipeStep)
+    return order[Math.max(0, order.indexOf(zoneAt(swipe.peak)) - steps)]
   }
 
   FileView {
@@ -220,6 +233,8 @@ Item {
       property real up: 0
       // Whether it has gone far enough up to count as a swipe (swipeMin).
       property bool armed: false
+      // The highest it has been.
+      property real peak: 0
       readonly property bool forKeyboard: startX > width * 0.82
 
       onPressed: function(mouse) {
@@ -227,11 +242,13 @@ Item {
         startY = mouse.y
         up = 0
         armed = false
+        peak = 0
       }
 
       onPositionChanged: function(mouse) {
         up = startY - mouse.y
         if (up >= root.swipeMin) armed = true
+        if (up > peak) peak = up
       }
 
       onReleased: function(mouse) {
