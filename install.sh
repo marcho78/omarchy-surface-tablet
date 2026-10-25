@@ -5,6 +5,7 @@
 #   ./install.sh          everything (asks for sudo for the system part)
 #   ./install.sh --home   only your home directory, no sudo
 #   ./install.sh --patches  only the Omarchy shell touch patches (sudo)
+#   ./install.sh --camera   only the back camera driver fix (sudo)
 #
 # Files under home/ are symlinked into $HOME, so editing them in place edits
 # this repo. Files that also hold your own settings (hyprland.lua, bindings,
@@ -47,6 +48,9 @@ install_system() {
 
   say "Touch patches for the Omarchy shell (kept across Omarchy updates)"
   install_omarchy_patches
+
+  say "Back camera driver fix (kept across kernel updates)"
+  install_camera_fix
 }
 
 # Patches to Omarchy's own shell files (e.g. sliding through the theme picker
@@ -57,6 +61,18 @@ install_omarchy_patches() {
   sudo rm -rf /usr/local/share/surface-tablet/omarchy-patches
   sudo install -Dm644 -t /usr/local/share/surface-tablet/omarchy-patches "$REPO"/system/usr/local/share/surface-tablet/omarchy-patches/*.patch
   sudo /usr/local/bin/surface-omarchy-patches
+}
+
+# The back camera's driver rebuilt with the black level libcamera expects,
+# plus a pacman hook that rebuilds it for each new linux-surface kernel. Takes
+# effect when the driver next loads (reboot).
+install_camera_fix() {
+  sudo install -Dm755 "$REPO/system/usr/local/bin/surface-camera-fix" /usr/local/bin/surface-camera-fix
+  sudo install -Dm644 "$REPO/system/etc/pacman.d/hooks/surface-camera-fix.hook" /etc/pacman.d/hooks/surface-camera-fix.hook
+  sudo install -Dm644 "$REPO/system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch" \
+    /usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch
+  sudo pacman -S --needed --noconfirm libcamera libcamera-ipa libcamera-tools pipewire-libcamera
+  sudo /usr/local/bin/surface-camera-fix
 }
 
 # ---------------------------------------------------------------- home
@@ -140,6 +156,7 @@ o.bind("SUPER + SHIFT + K", "On-screen keyboard", os.getenv("HOME") .. "/.local/
 case ${1:-} in
   --home) install_home ;;
   --patches) install_omarchy_patches; omarchy restart shell >/dev/null 2>&1 || true ;;
+  --camera) install_camera_fix; say "Done. Reboot to load the fixed camera driver." ;;
   "") install_system; install_home; say "Done. Reboot into the linux-surface kernel." ;;
-  *) echo "Usage: $0 [--home|--patches]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [--home|--patches|--camera]" >&2; exit 1 ;;
 esac

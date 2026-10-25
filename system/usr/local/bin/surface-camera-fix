@@ -1,0 +1,88 @@
+#!/bin/bash
+# Rebuild the back camera's driver (OV8865) with its black level at 64, for
+# each installed linux-surface kernel. libcamera's IPU3 image processing takes
+# 64 off every pixel; the sensor's own default is 16, so dark scenes came out
+# black. Run by a pacman hook after every linux-surface install or upgrade,
+# and by install.sh.
+#
+#   surface-camera-fix            build for every installed -surface kernel
+#   surface-camera-fix --remove   go back to the kernel's own driver
+#
+# The module goes into /usr/lib/modules/<kernel>/updates/, which depmod
+# prefers over the kernel's own copy; no package files are touched. The source
+# is linux-surface's ov8865.c for that kernel series (kept in $CACHE for when
+# GitHub can't be reached). A patch that no longer fits is reported and left
+# out, never forced: the camera then runs on the stock driver.
+
+PATCH=/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch
+CACHE=/var/cache/surface-tablet/ov8865
+SOURCE=https://raw.githubusercontent.com/linux-surface/kernel
+
+if [[ $EUID -ne 0 ]]; then
+  echo "surface-camera-fix: run as root" >&2
+  exit 1
+fi
+
+# Our module in the folder of a kernel that has since been removed.
+remove_from() {
+  local kdir=$1
+  rm -f "$kdir/updates/ov8865.ko"
+  rmdir "$kdir/updates" 2>/dev/null
+  [[ -d $kdir/kernel ]] && depmod -a "$(basename "$kdir")"
+}
+
+build() {
+  local kver=$1 series work
+  series=v$(cut -d. -f1-2 <<<"$kver")-surface
+  if [[ ! -d /usr/lib/modules/$kver/build ]]; then
+    echo "surface-camera-fix: no headers for $kver (linux-surface-headers), skipped" >&2
+    return
+  fi
+
+  work=$(mktemp -d)
+  mkdir -p "$CACHE"
+  if curl -fsSL --max-time 60 "$SOURCE/$series/drivers/media/i2c/ov8865.c" -o "$work/ov8865.c"; then
+    cp "$work/ov8865.c" "$CACHE/$series.c"
+  elif [[ -f $CACHE/$series.c ]]; then
+    echo "surface-camera-fix: GitHub not reachable, using the cached $series source" >&2
+    cp "$CACHE/$series.c" "$work/ov8865.c"
+  else
+    echo "surface-camera-fix: no ov8865.c source for $series, skipped" >&2
+    rm -rf "$work"
+    return
+  fi
+
+  if ! patch -s -f -d "$work" -p0 --no-backup-if-mismatch <"$PATCH" >/dev/null 2>&1; then
+    echo "surface-camera-fix: the black level patch no longer fits $series, skipped" >&2
+    rm -rf "$work"
+    return
+  fi
+
+  echo 'obj-m := ov8865.o' >"$work/Kbuild"
+  if make -s -C "/usr/lib/modules/$kver/build" M="$work" modules >"$work/build.log" 2>&1; then
+    install -Dm644 "$work/ov8865.ko" "/usr/lib/modules/$kver/updates/ov8865.ko"
+    depmod -a "$kver"
+    echo "surface-camera-fix: built for $kver"
+  else
+    echo "surface-camera-fix: build failed for $kver:" >&2
+    tail -5 "$work/build.log" >&2
+  fi
+  rm -rf "$work"
+}
+
+for module in /usr/lib/modules/*/updates/ov8865.ko; do
+  [[ -e $module ]] || continue
+  kdir=${module%/updates/ov8865.ko}
+  if [[ $1 == --remove ]]; then
+    remove_from "$kdir"
+    echo "surface-camera-fix: removed from $(basename "$kdir")"
+  elif [[ ! -d $kdir/kernel ]]; then
+    remove_from "$kdir"
+  fi
+done
+[[ $1 == --remove ]] && exit 0
+
+for kdir in /usr/lib/modules/*-surface; do
+  [[ -d $kdir/kernel ]] && build "$(basename "$kdir")"
+done
+exit 0

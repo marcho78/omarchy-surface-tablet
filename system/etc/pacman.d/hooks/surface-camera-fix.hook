@@ -1,0 +1,12 @@
+# A new linux-surface kernel brings the stock back camera driver; rebuild ours.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux-surface
+Target = linux-surface-headers
+
+[Action]
+Description = Rebuilding the Surface back camera driver (black level fix)...
+When = PostTransaction
+Exec = /usr/local/bin/surface-camera-fix

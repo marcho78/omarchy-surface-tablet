@@ -1,0 +1,22 @@
+--- ov8865.c
++++ ov8865.c
+@@ -1541,6 +1541,19 @@
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Black level target of 64 (10-bit), where ISPs expect it: libcamera's
++	 * IPU3 IPA takes 64 off every pixel, and with the sensor's default of
++	 * 16 dark scenes came out black.
++	 */
++	ret = ov8865_write(sensor, OV8865_BLC_CTRL4_REG, 0x00);
++	if (ret)
++		return ret;
++
++	ret = ov8865_write(sensor, OV8865_BLC_CTRL5_REG, 0x40);
++	if (ret)
++		return ret;
++
+ 	/* Increase BLC offset maximum limit. */
+ 	return ov8865_write(sensor, OV8865_BLC_OFFSET_LIMIT_REG,
+ 			    OV8865_BLC_OFFSET_LIMIT(63));

@@ -23,6 +23,14 @@ git clone <this repo> ~/surface-tablet
 - `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
   then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
 - `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
+- Cameras: `libcamera`, `libcamera-ipa`, `libcamera-tools` (`cam -l`) and `pipewire-libcamera`
+  (apps) drive the front (OV5693) and back (OV8865) cameras; the IR camera isn't supported.
+  The back camera came out black: the sensor's black level target defaults to 16 while
+  libcamera's IPU3 processing takes 64 off every pixel. `/usr/local/bin/surface-camera-fix`
+  rebuilds the OV8865 driver from linux-surface's source with the target at 64
+  (`system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch`) into
+  `/usr/lib/modules/<kernel>/updates/` (no package files touched), and a pacman hook
+  rebuilds it for each new linux-surface kernel. `surface-camera-fix --remove` undoes it.
 
 - Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
   applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook
