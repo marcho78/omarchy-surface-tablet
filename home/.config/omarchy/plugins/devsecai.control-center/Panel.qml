@@ -310,21 +310,14 @@ Item {
               onTapped: root.runAndClose("omarchy capture screenshot")
             }
 
-            Tile {
-              width: parent.cell
-              icon: "󰀻"
-              title: "Apps"
-              subtitle: "App library"
-              onTapped: root.runAndClose("omarchy-shell omarchy.dock apps")
-            }
+          }
 
-            Tile {
-              width: parent.cell
-              icon: "󰌢"
-              title: "Desktop"
-              subtitle: "Exit tablet"
-              onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
-            }
+          Tile {
+            width: parent.width
+            icon: "󰌢"
+            title: "Desktop"
+            subtitle: "Exit tablet"
+            onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
           }
 
           PillSlider {
