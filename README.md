@@ -73,6 +73,8 @@ git clone <this repo> ~/surface-tablet
   and next words, learns your words (plain-letter new words only after 3 uses;
   `~/.local/share/surface-osk/learned.json`, mode 600), and types a tapped suggestion
   with wtype. Suggestions on/off and Forget learned words on the Keyboard page.
+  The strip also has Esc at its left end (`wtype -k Escape`; wvkbd keeps Esc two pages
+  away, on =\<).
   Voice typing: the mic in the suggestion strip runs `~/.local/bin/surface-dictate
   toggle`, red and pulsing while it listens (state in
   `$XDG_RUNTIME_DIR/surface-dictate/state`). Vosk, through `nerd-dictation` (AUR, with
@@ -101,7 +103,11 @@ git clone <this repo> ~/surface-tablet
     a little = dock (only while the dock is set to auto-hide), partway (to 45% of the
     screen) = Stage Control, further (to 62%) = Search (O-Spotlight), far = app drawer;
     bottom-right: keyboard,
-    top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
+    top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab.
+    Coming back down to the bottom after a swipe has started keeps Dock lit instead of
+    cancelling. While Omarchy's screensaver shows in tablet mode, a full-screen tap layer
+    closes it on any tap (SIGHUP to `omarchy-screensaver`, which exits cleanly): it only
+    closes on a key press, and there is no keyboard.
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
     (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to

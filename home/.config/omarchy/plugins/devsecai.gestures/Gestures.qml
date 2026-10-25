@@ -44,10 +44,13 @@ Item {
   readonly property real switcherFraction: 0.45
   readonly property real searchFraction: 0.62
 
-  // What letting go of the current bottom swipe would do.
+  // What letting go of the current bottom swipe would do. Once a swipe has
+  // started, coming back down to the bottom keeps the dock (the lowest choice)
+  // rather than dropping out under swipeMin; without the dock it cancels.
   readonly property string swipeTarget: {
-    if (!swipe.pressed || swipe.forKeyboard || swipe.up < swipeMin) return ""
+    if (!swipe.pressed || swipe.forKeyboard || !swipe.armed) return ""
     if (dockAutohide && swipe.up < screenH * dockFraction) return "dock"
+    if (swipe.up < swipeMin) return ""
     if (swipe.up < screenH * switcherFraction) return "switcher"
     if (swipe.up < screenH * searchFraction) return "search"
     return "drawer"
@@ -142,6 +145,10 @@ Item {
       var name = event ? String(event.name) : ""
       if (name === "openlayer" && root.isOsk(event.data)) root.oskUp = true
       else if (name === "closelayer" && root.isOsk(event.data)) root.oskUp = false
+      else if (name === "openwindow" && String(event.data).split(",")[2] === "org.omarchy.screensaver")
+        root.screensaverAddress = String(event.data).split(",")[0]
+      else if (name === "closewindow" && String(event.data) === root.screensaverAddress)
+        root.screensaverAddress = ""
       else if (name === "openwindow" && root.dockUp) hideDelay.restart()
       // activewindowv2 also comes whenever the active window's title changes
       // (a terminal's spinner, a browser tab loading), so only a different
@@ -211,23 +218,27 @@ Item {
       property real startY: 0
       // How far up the finger is from where it started.
       property real up: 0
+      // Whether it has gone far enough up to count as a swipe (swipeMin).
+      property bool armed: false
       readonly property bool forKeyboard: startX > width * 0.82
 
       onPressed: function(mouse) {
         startX = mouse.x
         startY = mouse.y
         up = 0
+        armed = false
       }
 
       onPositionChanged: function(mouse) {
         up = startY - mouse.y
+        if (up >= root.swipeMin) armed = true
       }
 
       onReleased: function(mouse) {
         up = startY - mouse.y
-        if (up < root.swipeMin) return
+        if (!armed) return
         if (forKeyboard) {
-          root.toggleKeyboard()
+          if (up >= root.swipeMin) root.toggleKeyboard()
           return
         }
         var target = root.swipeTarget
@@ -235,7 +246,7 @@ Item {
         if (target === "drawer") root.run("omarchy-shell shell summon devsecai.app-drawer")
         else if (target === "switcher") root.run("omarchy-shell stage-control toggle")
         else if (target === "search") root.run("omarchy-shell shell summon marcho78.o-spotlight '{\"buttons\":true}'")
-        else root.showDock()
+        else if (target === "dock") root.showDock()
       }
     }
   }
@@ -321,10 +332,34 @@ Item {
     }
   }
 
+  // ------------------------------------------------------------ screensaver
+
+  // Omarchy's screensaver is a full-screen terminal that closes on a key press
+  // or when it loses focus, and a tap is neither: in tablet mode there is no
+  // keyboard to close it with. While it shows, a tap anywhere closes it, with
+  // the SIGHUP omarchy-screensaver traps to exit and bring the cursor back.
+  property string screensaverAddress: ""
+
+  PanelWindow {
+    visible: root.tablet && root.screensaverAddress !== "" && !!root.screen
+    screen: root.screen
+    anchors { top: true; bottom: true; left: true; right: true }
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "devsecai-screensaver-tap"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    MouseArea {
+      anchors.fill: parent
+      onPressed: root.run("pkill -HUP -f 'bin/[o]marchy-screensaver'")
+    }
+  }
+
   // ------------------------------------------------------------ suggestion strip
 
-  // Gboard's top row, above the on-screen keyboard while it shows: three word
-  // suggestions, the best in the middle, the mic for voice typing and the
+  // Gboard's top row, above the on-screen keyboard while it shows: Esc, three
+  // word suggestions (the best in the middle), the mic for voice typing and the
   // button that puts the keyboard away. Tap a suggestion to type it
   // (surface-osk-keys does the typing). The strip reserves its height like the
   // keyboard does, so Hyprland stacks it on top of the keyboard and apps sit
@@ -384,7 +419,48 @@ Item {
     Row {
       id: stripRow
       anchors.fill: parent
-      readonly property real cell: (width - mic.width - hideKeyboard.width) / 3
+      readonly property real cell: (width - escKey.width - mic.width - hideKeyboard.width) / 3
+
+      // Esc, one tap away, for terminals, menus and dialogs (wvkbd keeps it two
+      // pages from the letters, on =\<).
+      Item {
+        id: escKey
+        width: 68
+        height: stripRow.height
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: 52
+          height: 36
+          radius: 12
+          color: "#2d2d2d"
+          visible: escPress.pressed
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "Esc"
+          color: "white"
+          opacity: escPress.pressed ? 0.45 : 0.85
+          font.family: Style.font.family
+          font.pixelSize: 15
+          font.bold: true
+        }
+
+        Rectangle {
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          width: 1
+          height: parent.height * 0.45
+          color: "#3a3a3a"
+        }
+
+        MouseArea {
+          id: escPress
+          anchors.fill: parent
+          onClicked: root.run("wtype -k Escape; " + root.home + "/.local/bin/surface-osk reset")
+        }
+      }
 
       // Left the second best, the middle the best, right the third.
       Repeater {
