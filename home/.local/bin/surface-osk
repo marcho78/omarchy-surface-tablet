@@ -6,7 +6,7 @@
 #   surface-osk          run the watcher (started from autostart.lua)
 #   surface-osk toggle   show/hide the keyboard manually
 #   surface-osk show|hide
-#   surface-osk set style standard|full|simple
+#   surface-osk set style standard|numbers
 #   surface-osk set size small|medium|large
 #   surface-osk set click on|off
 #   surface-osk set predict on|off
@@ -89,14 +89,16 @@ preferred_language() {
   done
 }
 
-# Each style is a cycle of layers (the layer key steps through them); the
-# preferred language joins the cycle after the main layout.
+# The layouts are our own (packages/wvkbd/us-layout.patch): standard US QWERTY
+# like Gboard's, with ?123 and =\< symbol pages; "numbers" adds a number row,
+# and the keyboard grows a fifth taller so the keys keep their size. The
+# preferred language's layout follows in the list, though these layouts have
+# no key to step to it yet.
 wvkbd_args() {
-  local landscape portrait extra="" height lang
+  local letters extra="" height lang
   case $STYLE in
-    full) landscape=fullwide portrait=full ;;
-    simple) landscape=simple portrait=simple ;;
-    *) landscape=landscape portrait=full ;;
+    numbers | full) letters=usnum ;;
+    *) letters=us ;;
   esac
   lang=$(preferred_language)
   [[ -n $lang ]] && extra=",$lang"
@@ -105,8 +107,14 @@ wvkbd_args() {
     large) height=360 ;;
     *) height=300 ;;
   esac
-  echo "--landscape-layers $landscape$extra,landscapespecial,emoji" \
-    "-l $portrait$extra,special,emoji" \
+  [[ $letters == usnum ]] && height=$((height * 5 / 4))
+  # A wvkbd without our layouts (not yet updated) would refuse to start.
+  if ! wvkbd-mobintl --list-layers 2>/dev/null | grep -qx us; then
+    echo "--landscape-layers landscape$extra,landscapespecial -l full$extra,special -L 300 -H 400"
+    return
+  fi
+  echo "--landscape-layers $letters,ussym,usmore$extra" \
+    "-l $letters,ussym,usmore$extra" \
     "-L $height -H $((height * 4 / 3))"
 }
 
@@ -141,7 +149,7 @@ esac
 
 if [[ $1 == set ]]; then
   case $2 in
-    style) [[ $3 =~ ^(standard|full|simple)$ ]] && STYLE=$3 ;;
+    style) [[ $3 =~ ^(standard|numbers)$ ]] && STYLE=$3 ;;
     size) [[ $3 =~ ^(small|medium|large)$ ]] && SIZE=$3 ;;
     click) [[ $3 =~ ^(on|off)$ ]] && CLICK=$3 ;;
     predict) [[ $3 =~ ^(on|off)$ ]] && PREDICT=$3 ;;

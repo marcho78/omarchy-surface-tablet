@@ -1,0 +1,271 @@
+--- c/config.mobintl.h	2026-10-24 19:22:49.518886494 -0700
++++ d/config.mobintl.h	2026-10-24 20:50:36.083508875 -0700
+@@ -30,6 +30,20 @@
+   .text = {.color = UINT32_MAX},
+   .font = DEFAULT_FONT,
+   .rounding = DEFAULT_ROUNDING,
++},
++{
++  /* The Omarchy key (keys_us): a special key whose logo, U+E900, must come
++   * from Omarchy's own font. The JetBrainsMono Nerd Font has a glyph there
++   * too (a "COBOL" icon), and font fallback would pick that one. */
++  .bg = {.bgra = {15, 15, 15, transparency}},
++  .fg = {.bgra = {32, 32, 32, transparency}},
++  .high = {.bgra = {100, 100, 100, transparency}},
++  .swipe = {.bgra = {100, 255, 100, 64}},
++  .text_press = {.color = UINT32_MAX},
++  .text_swipe = {.color = UINT32_MAX},
++  .text = {.color = UINT32_MAX},
++  .font = "omarchy 18",
++  .rounding = DEFAULT_ROUNDING,
+ }
+ };
+ 
+--- c/layout.mobintl.h	2026-10-24 19:22:49.531590298 -0700
++++ d/layout.mobintl.h	2026-10-24 20:50:36.084320276 -0700
+@@ -64,6 +64,10 @@
+ 	ComposeCyrChe,
+ 	ComposeCyrG,
+ 	ComposeCyrK,
++	Us,
++	UsNum,
++	UsSym,
++	UsMore,
+ 	Index,
+ 	NumLayouts,
+ };
+@@ -81,7 +85,8 @@
+   keys_compose_cyr_i[], keys_compose_cyr_j[], keys_compose_cyr_e[],
+   keys_compose_cyr_u[], keys_compose_cyr_l[], keys_compose_cyr_n[],
+   keys_compose_cyr_tse[], keys_compose_cyr_che[], keys_compose_cyr_g[],
+-  keys_compose_cyr_k[], keys_dialer[], keys_index[];
++  keys_compose_cyr_k[], keys_dialer[], keys_index[],
++  keys_us[], keys_usnum[], keys_ussym[], keys_usmore[];
+ 
+ static struct layout layouts[NumLayouts] = {
+   [Full] = {keys_full, "latin", "full", true}, // second parameter is the keymap name
+@@ -142,6 +147,10 @@
+   [ComposeCyrK] = {keys_compose_cyr_k, "cyrillic"},
+ 
+   [Index] = {keys_index,"latin","index", false},
++  [Us] = {keys_us, "latin", "us", true},
++  [UsNum] = {keys_usnum, "latin", "usnum", true},
++  [UsSym] = {keys_ussym, "latin", "ussym", false},
++  [UsMore] = {keys_usmore, "latin", "usmore", false},
+ };
+ 
+ /* key layouts
+@@ -1714,3 +1723,213 @@
+   {"", "", 8, Pad},
+   {"", "", 0.0, Last},
+ };
++
++/* A standard US QWERTY keyboard, laid out like Gboard's or the iPad's. wvkbd
++ * stretches each row to the full width on its own, so every row here adds up
++ * to the same 10 units: the letter keys all come out the same size, and the
++ * middle row sits half a key in, with padding. ?123 opens the symbols (where
++ * Esc, Tab, Ctrl, Alt and the arrows live too, for terminals), ABC comes back.
++ * The Omarchy key is Super, labelled with the Omarchy logo (U+E900 in
++ * Omarchy's font): it latches for the next key, so Omarchy then space opens
++ * the Omarchy menu. usnum adds a number row on top. */
++static struct key keys_us[] = {
++  {"q", "Q", 1.0, Code, KEY_Q, &layouts[Emoji]},
++  {"w", "W", 1.0, Code, KEY_W, &layouts[ComposeW]},
++  {"e", "E", 1.0, Code, KEY_E, &layouts[ComposeE]},
++  {"r", "R", 1.0, Code, KEY_R, &layouts[ComposeR]},
++  {"t", "T", 1.0, Code, KEY_T, &layouts[ComposeT]},
++  {"y", "Y", 1.0, Code, KEY_Y, &layouts[ComposeY]},
++  {"u", "U", 1.0, Code, KEY_U, &layouts[ComposeU]},
++  {"i", "I", 1.0, Code, KEY_I, &layouts[ComposeI]},
++  {"o", "O", 1.0, Code, KEY_O, &layouts[ComposeO]},
++  {"p", "P", 1.0, Code, KEY_P, &layouts[ComposeP]},
++  {"", "", 0.0, EndRow},
++
++  {"", "", 0.5, Pad},
++  {"a", "A", 1.0, Code, KEY_A, &layouts[ComposeA]},
++  {"s", "S", 1.0, Code, KEY_S, &layouts[ComposeS]},
++  {"d", "D", 1.0, Code, KEY_D, &layouts[ComposeD]},
++  {"f", "F", 1.0, Code, KEY_F, &layouts[ComposeF]},
++  {"g", "G", 1.0, Code, KEY_G, &layouts[ComposeG]},
++  {"h", "H", 1.0, Code, KEY_H, &layouts[ComposeH]},
++  {"j", "J", 1.0, Code, KEY_J, &layouts[ComposeJ]},
++  {"k", "K", 1.0, Code, KEY_K, &layouts[ComposeK]},
++  {"l", "L", 1.0, Code, KEY_L, &layouts[ComposeL]},
++  {"", "", 0.5, Pad},
++  {"", "", 0.0, EndRow},
++
++  {"⇧", "⇫", 1.5, Mod, Shift, .scheme = 1},
++  {"z", "Z", 1.0, Code, KEY_Z, &layouts[ComposeZ]},
++  {"x", "X", 1.0, Code, KEY_X, &layouts[ComposeX]},
++  {"c", "C", 1.0, Code, KEY_C, &layouts[ComposeC]},
++  {"v", "V", 1.0, Code, KEY_V, &layouts[ComposeV]},
++  {"b", "B", 1.0, Code, KEY_B, &layouts[ComposeB]},
++  {"n", "N", 1.0, Code, KEY_N, &layouts[ComposeN]},
++  {"m", "M", 1.0, Code, KEY_M, &layouts[ComposeM]},
++  {"⌫", "⌫", 1.5, Code, KEY_BACKSPACE, .scheme = 1},
++  {"", "", 0.0, EndRow},
++
++  {"?123", "?123", 1.5, Layout, 0, &layouts[UsSym], .scheme = 1},
++  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"", "Tab", 4.0, Code, KEY_SPACE},
++  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
++  {"⏎", "⏎", 1.5, Code, KEY_ENTER, .scheme = 1},
++
++  /* end of layout */
++  {"", "", 0.0, Last},
++};
++
++static struct key keys_usnum[] = {
++  {"1", "!", 1.0, Code, KEY_1},
++  {"2", "@", 1.0, Code, KEY_2},
++  {"3", "#", 1.0, Code, KEY_3},
++  {"4", "$", 1.0, Code, KEY_4},
++  {"5", "%", 1.0, Code, KEY_5},
++  {"6", "^", 1.0, Code, KEY_6},
++  {"7", "&", 1.0, Code, KEY_7},
++  {"8", "*", 1.0, Code, KEY_8},
++  {"9", "(", 1.0, Code, KEY_9},
++  {"0", ")", 1.0, Code, KEY_0},
++  {"", "", 0.0, EndRow},
++
++  {"q", "Q", 1.0, Code, KEY_Q, &layouts[Emoji]},
++  {"w", "W", 1.0, Code, KEY_W, &layouts[ComposeW]},
++  {"e", "E", 1.0, Code, KEY_E, &layouts[ComposeE]},
++  {"r", "R", 1.0, Code, KEY_R, &layouts[ComposeR]},
++  {"t", "T", 1.0, Code, KEY_T, &layouts[ComposeT]},
++  {"y", "Y", 1.0, Code, KEY_Y, &layouts[ComposeY]},
++  {"u", "U", 1.0, Code, KEY_U, &layouts[ComposeU]},
++  {"i", "I", 1.0, Code, KEY_I, &layouts[ComposeI]},
++  {"o", "O", 1.0, Code, KEY_O, &layouts[ComposeO]},
++  {"p", "P", 1.0, Code, KEY_P, &layouts[ComposeP]},
++  {"", "", 0.0, EndRow},
++
++  {"", "", 0.5, Pad},
++  {"a", "A", 1.0, Code, KEY_A, &layouts[ComposeA]},
++  {"s", "S", 1.0, Code, KEY_S, &layouts[ComposeS]},
++  {"d", "D", 1.0, Code, KEY_D, &layouts[ComposeD]},
++  {"f", "F", 1.0, Code, KEY_F, &layouts[ComposeF]},
++  {"g", "G", 1.0, Code, KEY_G, &layouts[ComposeG]},
++  {"h", "H", 1.0, Code, KEY_H, &layouts[ComposeH]},
++  {"j", "J", 1.0, Code, KEY_J, &layouts[ComposeJ]},
++  {"k", "K", 1.0, Code, KEY_K, &layouts[ComposeK]},
++  {"l", "L", 1.0, Code, KEY_L, &layouts[ComposeL]},
++  {"", "", 0.5, Pad},
++  {"", "", 0.0, EndRow},
++
++  {"⇧", "⇫", 1.5, Mod, Shift, .scheme = 1},
++  {"z", "Z", 1.0, Code, KEY_Z, &layouts[ComposeZ]},
++  {"x", "X", 1.0, Code, KEY_X, &layouts[ComposeX]},
++  {"c", "C", 1.0, Code, KEY_C, &layouts[ComposeC]},
++  {"v", "V", 1.0, Code, KEY_V, &layouts[ComposeV]},
++  {"b", "B", 1.0, Code, KEY_B, &layouts[ComposeB]},
++  {"n", "N", 1.0, Code, KEY_N, &layouts[ComposeN]},
++  {"m", "M", 1.0, Code, KEY_M, &layouts[ComposeM]},
++  {"⌫", "⌫", 1.5, Code, KEY_BACKSPACE, .scheme = 1},
++  {"", "", 0.0, EndRow},
++
++  {"?123", "?123", 1.5, Layout, 0, &layouts[UsSym], .scheme = 1},
++  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"", "Tab", 4.0, Code, KEY_SPACE},
++  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
++  {"⏎", "⏎", 1.5, Code, KEY_ENTER, .scheme = 1},
++
++  /* end of layout */
++  {"", "", 0.0, Last},
++};
++
++/* ?123: numbers and the common symbols, as on Gboard. */
++static struct key keys_ussym[] = {
++  {"1", "1", 1.0, Code, KEY_1},
++  {"2", "2", 1.0, Code, KEY_2},
++  {"3", "3", 1.0, Code, KEY_3},
++  {"4", "4", 1.0, Code, KEY_4},
++  {"5", "5", 1.0, Code, KEY_5},
++  {"6", "6", 1.0, Code, KEY_6},
++  {"7", "7", 1.0, Code, KEY_7},
++  {"8", "8", 1.0, Code, KEY_8},
++  {"9", "9", 1.0, Code, KEY_9},
++  {"0", "0", 1.0, Code, KEY_0},
++  {"", "", 0.0, EndRow},
++
++  {"@", "@", 1.0, Code, KEY_2, .code_mod = Shift},
++  {"#", "#", 1.0, Code, KEY_3, .code_mod = Shift},
++  {"$", "$", 1.0, Code, KEY_4, .code_mod = Shift},
++  {"_", "_", 1.0, Code, KEY_MINUS, .code_mod = Shift},
++  {"&", "&", 1.0, Code, KEY_7, .code_mod = Shift},
++  {"-", "-", 1.0, Code, KEY_MINUS},
++  {"+", "+", 1.0, Code, KEY_EQUAL, .code_mod = Shift},
++  {"(", "(", 1.0, Code, KEY_9, .code_mod = Shift},
++  {")", ")", 1.0, Code, KEY_0, .code_mod = Shift},
++  {"/", "/", 1.0, Code, KEY_SLASH},
++  {"", "", 0.0, EndRow},
++
++  {"=\\<", "=\\<", 1.5, Layout, 0, &layouts[UsMore], .scheme = 1},
++  {"*", "*", 1.0, Code, KEY_8, .code_mod = Shift},
++  {"\"", "\"", 1.0, Code, KEY_APOSTROPHE, .code_mod = Shift},
++  {"'", "'", 1.0, Code, KEY_APOSTROPHE},
++  {":", ":", 1.0, Code, KEY_SEMICOLON, .code_mod = Shift},
++  {";", ";", 1.0, Code, KEY_SEMICOLON},
++  {"!", "!", 1.0, Code, KEY_1, .code_mod = Shift},
++  {"?", "?", 1.0, Code, KEY_SLASH, .code_mod = Shift},
++  {"⌫", "⌫", 1.5, Code, KEY_BACKSPACE, .scheme = 1},
++  {"", "", 0.0, EndRow},
++
++  {"ABC", "ABC", 1.5, BackLayer, .scheme = 1},
++  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"", "Tab", 4.0, Code, KEY_SPACE},
++  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
++  {"⏎", "⏎", 1.5, Code, KEY_ENTER, .scheme = 1},
++
++  /* end of layout */
++  {"", "", 0.0, Last},
++};
++
++/* =\<: the rest of the symbols, and the keys terminals need. */
++static struct key keys_usmore[] = {
++  {"~", "~", 1.0, Code, KEY_GRAVE, .code_mod = Shift},
++  {"`", "`", 1.0, Code, KEY_GRAVE},
++  {"|", "|", 1.0, Code, KEY_BACKSLASH, .code_mod = Shift},
++  {"\\", "\\", 1.0, Code, KEY_BACKSLASH},
++  {"{", "{", 1.0, Code, KEY_LEFTBRACE, .code_mod = Shift},
++  {"}", "}", 1.0, Code, KEY_RIGHTBRACE, .code_mod = Shift},
++  {"[", "[", 1.0, Code, KEY_LEFTBRACE},
++  {"]", "]", 1.0, Code, KEY_RIGHTBRACE},
++  {"<", "<", 1.0, Code, KEY_COMMA, .code_mod = Shift},
++  {">", ">", 1.0, Code, KEY_DOT, .code_mod = Shift},
++  {"", "", 0.0, EndRow},
++
++  {"Esc", "Esc", 1.25, Code, KEY_ESC, .scheme = 1},
++  {"Tab", "Tab", 1.25, Code, KEY_TAB, .scheme = 1},
++  {"Ctrl", "Ctrl", 1.25, Mod, Ctrl, .scheme = 1},
++  {"Alt", "Alt", 1.25, Mod, Alt, .scheme = 1},
++  {"←", "←", 1.25, Code, KEY_LEFT, .scheme = 1},
++  {"↓", "↓", 1.25, Code, KEY_DOWN, .scheme = 1},
++  {"↑", "↑", 1.25, Code, KEY_UP, .scheme = 1},
++  {"→", "→", 1.25, Code, KEY_RIGHT, .scheme = 1},
++  {"", "", 0.0, EndRow},
++
++  {"?123", "?123", 1.5, Layout, 0, &layouts[UsSym], .scheme = 1},
++  {"=", "=", 1.0, Code, KEY_EQUAL},
++  {"%", "%", 1.0, Code, KEY_5, .code_mod = Shift},
++  {"^", "^", 1.0, Code, KEY_6, .code_mod = Shift},
++  {"€", "€", 1.0, Copy, 0x20AC, 0, 0x20AC},
++  {"£", "£", 1.0, Copy, 0x00A3, 0, 0x00A3},
++  {"¥", "¥", 1.0, Copy, 0x00A5, 0, 0x00A5},
++  {"°", "°", 1.0, Copy, 0x00B0, 0, 0x00B0},
++  {"⌫", "⌫", 1.5, Code, KEY_BACKSPACE, .scheme = 1},
++  {"", "", 0.0, EndRow},
++
++  {"ABC", "ABC", 1.5, BackLayer, .scheme = 1},
++  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"", "Tab", 4.0, Code, KEY_SPACE},
++  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
++  {"⏎", "⏎", 1.5, Code, KEY_ENTER, .scheme = 1},
++
++  /* end of layout */
++  {"", "", 0.0, Last},
++};

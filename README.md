@@ -18,7 +18,8 @@ git clone <this repo> ~/surface-tablet
   `linux-surface-headers`, `iptsd`, `squeekboard`, and `wvkbd` built from
   `packages/wvkbd` (the AUR package plus touch patches: a held key such as Backspace
   repeats; a tapped key stays lit for 150 ms; the key popup is a magnified preview
-  above the key, as on phone keyboards).
+  above the key, as on phone keyboards; and standard US QWERTY layouts like Gboard's,
+  with ?123 / =\< symbol pages and an Omarchy (Super) key).
 - `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
   then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
 - `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
@@ -36,7 +37,8 @@ git clone <this repo> ~/surface-tablet
     auto-hidden dock up for a few seconds; tablet mode's short bottom swipe uses it.
 
 **Home** (symlinked from `home/`)
-- `~/.local/bin/surface-osk`: Type Cover watcher. Cover off → tablet mode on and
+- `~/.local/bin/surface-osk`: Type Cover watcher (layout styles: `standard` = Gboard-like
+  US QWERTY, `numbers` = the same with a number row). Cover off → tablet mode on and
   the keyboard pops up on text fields; cover on → desktop mode. `surface-osk toggle`
   shows/hides the keyboard; `surface-osk set style|size|click ...` changes its
   layout (saved in `~/.config/surface-osk/settings`, also set from the Control

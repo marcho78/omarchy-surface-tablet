@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 
-// On-screen keyboard settings: layout style, height and key click. Your
+// On-screen keyboard settings: layout, height, key click and suggestions. Your
 // preferred language (from the system settings) is added by surface-osk.
 // Saved and applied by `surface-osk set`, which restarts the keyboard.
 Column {
@@ -149,31 +149,25 @@ Column {
 
   Heading { text: "LAYOUT" }
 
+  // Both are standard US QWERTY, like Gboard's; one adds a number row.
   Row {
     width: parent.width
     spacing: 10
-    readonly property real cell: (width - 2 * spacing) / 3
+    readonly property real cell: (width - spacing) / 2
 
     Choice {
       width: parent.cell
       label: "Standard"
-      detail: "Letters, arrows"
-      selected: page.style === "standard"
+      detail: "QWERTY"
+      selected: page.style !== "numbers"
       onTapped: page.set("style", "standard")
     }
     Choice {
       width: parent.cell
-      label: "Full"
-      detail: "Numbers row"
-      selected: page.style === "full"
-      onTapped: page.set("style", "full")
-    }
-    Choice {
-      width: parent.cell
-      label: "Simple"
-      detail: "Big keys"
-      selected: page.style === "simple"
-      onTapped: page.set("style", "simple")
+      label: "Number row"
+      detail: "QWERTY, digits on top"
+      selected: page.style === "numbers"
+      onTapped: page.set("style", "numbers")
     }
   }
 

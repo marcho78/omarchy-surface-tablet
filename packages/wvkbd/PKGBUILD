@@ -6,6 +6,9 @@
 #   key-preview.patch     the popup is a magnified preview above the key, as on
 #                         phone keyboards: a slightly bigger bubble, the character
 #                         at 1.5x, only for keys that type a character
+#   us-layout.patch       standard US QWERTY layouts like Gboard's (us, usnum with
+#                         a number row, ussym, usmore), even key sizes, and an
+#                         Omarchy (Super) key drawn with Omarchy's own font
 # Build and install with:  makepkg -si
 #
 # Maintainer: Ash <xash at riseup d0t net>
@@ -13,7 +16,7 @@
 
 pkgname=wvkbd
 pkgver=0.20
-pkgrel=1.4
+pkgrel=1.5
 pkgdesc='On-screen keyboard for wlroots (touch fixes: held keys repeat, magnified key previews)'
 url='https://git.sr.ht/~proycon/wvkbd'
 arch=('x86_64' 'i686' 'armv7h' 'aarch64')
@@ -23,16 +26,19 @@ makedepends=('fontconfig' 'libxkbcommon' 'scdoc')
 source=("$pkgname-$pkgver.tar.gz::https://git.sr.ht/~proycon/wvkbd/archive/v$pkgver.tar.gz"
         'hold-to-repeat.patch'
         'key-linger.patch'
-        'key-preview.patch')
+        'key-preview.patch'
+        'us-layout.patch')
 sha512sums=('1c5204dc00f7a3bdfd199dfa88b513c46249b7832ba546c0554940539fcc4e0d55303a9f6edd17dd82fd2893b602b86395202311b3ec851f5e8f41895f682371'
             'd36486e5e4e577cdeb89487143025e2147dea07f0304694650d7574a1ee02badaae62e0e90814200278565bf323e0af7a761ad5cbf902300fcb92d85107a788a'
             'b996032cde99d809ff2c4698df907fc6eb0da3e8a91e213bf15d5c3a72115b370e0f6db98a8470c1b611e0093fabfc8545b0b8f188442985c28f0d33b39e57a8'
-            '8ce27b53ebf3194aab45492053b9640908e3ceb17c11e7795f5130980468b0ff29481e76ba37a0ec5d9e9816daeaebe015d104d7d88abc0eba4bf32431f805fb')
+            '8ce27b53ebf3194aab45492053b9640908e3ceb17c11e7795f5130980468b0ff29481e76ba37a0ec5d9e9816daeaebe015d104d7d88abc0eba4bf32431f805fb'
+            '7b294ed53f2a84ce575c9659b4036dd1be63ec81d3272188ec089d9d9a866ffafee3b7db6695d81b57168f927bf3edf811708e6d0006027c679a091dcd677112')
 
 prepare() {
   patch -d "$pkgname-v$pkgver" -p1 <hold-to-repeat.patch
   patch -d "$pkgname-v$pkgver" -p1 <key-linger.patch
   patch -d "$pkgname-v$pkgver" -p1 <key-preview.patch
+  patch -d "$pkgname-v$pkgver" -p1 <us-layout.patch
 }
 
 build() {
