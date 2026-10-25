@@ -149,6 +149,9 @@ Item {
   OverlayWindow {
     id: window
     shown: root.opened
+    // One layer below the on-screen keyboard (and the edge-swipe strips), so
+    // the keyboard always draws over the drawer, even when it was already up.
+    shownLayer: WlrLayer.Top
     WlrLayershell.namespace: "devsecai-app-drawer"
 
     // Tap outside the grid to close.
@@ -234,8 +237,18 @@ Item {
           }
         }
 
+        // The whole pill is one touch target: a tap anywhere on it (the
+        // text field too, which would otherwise take the tap for itself)
+        // brings up the on-screen keyboard.
+        MouseArea {
+          anchors.fill: parent
+          z: 1
+          onClicked: root.showKeyboard()
+        }
+
         Text {
           id: clearButton
+          z: 2
           anchors.right: parent.right
           anchors.rightMargin: 16
           anchors.verticalCenter: parent.verticalCenter
@@ -246,11 +259,11 @@ Item {
           font.family: Style.font.family
           font.pixelSize: 20
 
-          TapHandler { onTapped: search.text = "" }
-        }
-
-        TapHandler {
-          onTapped: root.showKeyboard()
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -10
+            onClicked: search.text = ""
+          }
         }
       }
 
