@@ -22,7 +22,7 @@
  };
  
 --- c/layout.mobintl.h	2026-10-24 19:22:49.531590298 -0700
-+++ d/layout.mobintl.h	2026-10-24 21:05:46.071978013 -0700
++++ d/layout.mobintl.h	2026-10-24 21:15:02.696974323 -0700
 @@ -64,6 +64,10 @@
  	ComposeCyrChe,
  	ComposeCyrG,
@@ -55,7 +55,7 @@
  };
  
  /* key layouts
-@@ -1714,3 +1723,227 @@
+@@ -1714,3 +1723,228 @@
    {"", "", 8, Pad},
    {"", "", 0.0, Last},
  };
@@ -63,8 +63,9 @@
 +/* A standard US QWERTY keyboard, laid out like Gboard's or the iPad's. wvkbd
 + * stretches each row to the full width on its own, so every row here adds up
 + * to the same 10 units: the letter keys all come out the same size, and the
-+ * middle row sits half a key in, with padding. ?123 opens the symbols (where
-+ * Esc, Tab, Delete, Home, End, Print and the arrows live too), ABC comes back.
++ * middle row sits half a key in, with padding. ?123 opens the numbers and
++ * symbols, with the arrow keys; =\< has the rest, with Esc, Tab, Delete,
++ * Home, End and Print. ABC comes back to the letters.
 + * The bottom row has Ctrl, the Omarchy key (Super, labelled with the Omarchy
 + * logo, U+E900 in Omarchy's font) and Alt together, as on a PC, so any Omarchy
 + * shortcut can be typed; both sides of the space bar are 3.75 units, so it
@@ -183,7 +184,7 @@
 +  {"", "", 0.0, Last},
 +};
 +
-+/* ?123: numbers and the common symbols, as on Gboard. */
++/* ?123: numbers and the common symbols, as on Gboard, and the arrow keys. */
 +static struct key keys_ussym[] = {
 +  {"1", "1", 1.0, Code, KEY_1},
 +  {"2", "2", 1.0, Code, KEY_2},
@@ -210,13 +211,13 @@
 +  {"", "", 0.0, EndRow},
 +
 +  {"=\\<", "=\\<", 1.5, Layout, 0, &layouts[UsMore], .scheme = 1},
-+  {"*", "*", 1.0, Code, KEY_8, .code_mod = Shift},
-+  {"\"", "\"", 1.0, Code, KEY_APOSTROPHE, .code_mod = Shift},
 +  {"'", "'", 1.0, Code, KEY_APOSTROPHE},
-+  {":", ":", 1.0, Code, KEY_SEMICOLON, .code_mod = Shift},
-+  {";", ";", 1.0, Code, KEY_SEMICOLON},
 +  {"!", "!", 1.0, Code, KEY_1, .code_mod = Shift},
 +  {"?", "?", 1.0, Code, KEY_SLASH, .code_mod = Shift},
++  {"←", "←", 1.0, Code, KEY_LEFT, .scheme = 1},
++  {"↓", "↓", 1.0, Code, KEY_DOWN, .scheme = 1},
++  {"↑", "↑", 1.0, Code, KEY_UP, .scheme = 1},
++  {"→", "→", 1.0, Code, KEY_RIGHT, .scheme = 1},
 +  {"⌫", "⌫", 1.5, Code, KEY_BACKSPACE, .scheme = 1},
 +  {"", "", 0.0, EndRow},
 +
@@ -254,10 +255,10 @@
 +  {"Home", "Home", 1.0, Code, KEY_HOME, .scheme = 1},
 +  {"End", "End", 1.0, Code, KEY_END, .scheme = 1},
 +  {"PrtSc", "PrtSc", 1.0, Code, KEY_SYSRQ, .scheme = 1},
-+  {"←", "←", 1.0, Code, KEY_LEFT, .scheme = 1},
-+  {"↓", "↓", 1.0, Code, KEY_DOWN, .scheme = 1},
-+  {"↑", "↑", 1.0, Code, KEY_UP, .scheme = 1},
-+  {"→", "→", 1.0, Code, KEY_RIGHT, .scheme = 1},
++  {"*", "*", 1.0, Code, KEY_8, .code_mod = Shift},
++  {"\"", "\"", 1.0, Code, KEY_APOSTROPHE, .code_mod = Shift},
++  {":", ":", 1.0, Code, KEY_SEMICOLON, .code_mod = Shift},
++  {";", ";", 1.0, Code, KEY_SEMICOLON},
 +  {"", "", 0.0, EndRow},
 +
 +  {"?123", "?123", 1.5, Layout, 0, &layouts[UsSym], .scheme = 1},
