@@ -6,6 +6,7 @@
 #   ./install.sh --home   only your home directory, no sudo
 #   ./install.sh --patches  only the Omarchy shell touch patches (sudo)
 #   ./install.sh --camera   only the back camera driver fix (sudo)
+#   ./install.sh --voice    only voice typing (sudo)
 #
 # Files under home/ are symlinked into $HOME, so editing them in place edits
 # this repo. Files that also hold your own settings (hyprland.lua, bindings,
@@ -51,6 +52,9 @@ install_system() {
 
   say "Back camera driver fix (kept across kernel updates)"
   install_camera_fix
+
+  say "Voice typing (Omarchy's dictation with Voxtype)"
+  install_voice_typing
 }
 
 # Patches to Omarchy's own shell files (e.g. sliding through the theme picker
@@ -74,6 +78,22 @@ install_camera_fix() {
     /usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch
   sudo pacman -S --needed --noconfirm libcamera libcamera-ipa libcamera-tools pipewire-libcamera snapshot
   sudo /usr/local/bin/surface-camera-fix
+}
+
+# Voice typing. The on-screen keyboard's mic runs surface-dictate: Vosk, through
+# nerd-dictation (AUR), typing as you speak with Vosk's small English model.
+# Omarchy's dictation keys use Voxtype (offline Whisper), set up the Omarchy
+# way; it types once you stop, since Whisper can't keep up live on this CPU.
+install_voice_typing() {
+  sudo pacman -S --needed --noconfirm voxtype-bin wtype python-vosk unzip
+  omarchy-install-dictation-voxtype
+  yay -S --needed --noconfirm --answerdiff None --answerclean None --removemake nerd-dictation-git
+  local models=$HOME/.local/share/vosk model=vosk-model-small-en-us-0.15
+  if [[ ! -d $models/$model ]]; then
+    mkdir -p "$models"
+    curl -fsSL -o "$models/$model.zip" "https://alphacephei.com/vosk/models/$model.zip"
+    unzip -q -d "$models" "$models/$model.zip" && rm "$models/$model.zip"
+  fi
 }
 
 # ---------------------------------------------------------------- home
@@ -158,6 +178,7 @@ case ${1:-} in
   --home) install_home ;;
   --patches) install_omarchy_patches; omarchy restart shell >/dev/null 2>&1 || true ;;
   --camera) install_camera_fix; say "Done. Reboot to load the fixed camera driver." ;;
+  --voice) install_voice_typing ;;
   "") install_system; install_home; say "Done. Reboot into the linux-surface kernel." ;;
-  *) echo "Usage: $0 [--home|--patches|--camera]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [--home|--patches|--camera|--voice]" >&2; exit 1 ;;
 esac

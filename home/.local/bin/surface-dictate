@@ -1,0 +1,52 @@
+#!/bin/bash
+# Voice typing for the on-screen keyboard: Vosk (through nerd-dictation) types
+# what you say at the cursor while you speak, correcting the last words as it
+# hears more. The first word is capitalised; the small model types no
+# punctuation. Stops by itself after 30 seconds without speech.
+#   surface-dictate toggle   start or stop (the keyboard's mic button)
+#   surface-dictate start|stop
+#   surface-dictate status   listening or idle (also in $STATE/state)
+#   surface-dictate check    whether it can run (nerd-dictation and the model)
+#
+# Omarchy's own dictation keys (Super+Ctrl+X, hold F9 or Right Alt) stay on
+# Voxtype: more accurate, with punctuation, but it types once you stop, since
+# Whisper can't keep up live on this CPU.
+
+MODEL=${SURFACE_DICTATE_MODEL:-$HOME/.local/share/vosk/vosk-model-small-en-us-0.15}
+STATE=$XDG_RUNTIME_DIR/surface-dictate
+mkdir -p "$STATE"
+
+running() {
+  [[ -f $STATE/pid ]] && kill -0 "$(cat "$STATE/pid")" 2>/dev/null
+}
+
+start() {
+  running && return
+  echo listening >"$STATE/state"
+  (
+    nerd-dictation begin \
+      --vosk-model-dir "$MODEL" \
+      --input PW-CAT --sample-rate 16000 \
+      --simulate-input-tool WTYPE \
+      --full-sentence --timeout 30 &
+    echo $! >"$STATE/pid"
+    wait
+    rm -f "$STATE/pid"
+    echo idle >"$STATE/state"
+  ) >/dev/null 2>&1 &
+  disown
+}
+
+# nerd-dictation types what it still has, then exits (the state goes idle).
+stop() {
+  running && nerd-dictation end
+}
+
+case $1 in
+  start) start ;;
+  stop) stop ;;
+  toggle) if running; then stop; else start; fi ;;
+  status) running && echo listening || echo idle ;;
+  check) command -v nerd-dictation >/dev/null && [[ -d $MODEL ]] ;;
+  *) echo "Usage: surface-dictate toggle|start|stop|status|check" >&2; exit 1 ;;
+esac

@@ -125,6 +125,9 @@ Item {
   onOskUpChanged: {
     if (tablet) refit.restart()
     run(home + "/.local/bin/surface-osk reset")
+    if (oskUp) dictationCheck.running = true
+    // The mic lives on the keyboard: putting the keyboard away stops it.
+    else if (dictationState === "listening") run(home + "/.local/bin/surface-dictate stop")
   }
 
   Timer {
@@ -321,11 +324,38 @@ Item {
   // ------------------------------------------------------------ suggestion strip
 
   // Gboard's top row, above the on-screen keyboard while it shows: three word
-  // suggestions, the best in the middle, and the button that puts the keyboard
-  // away. Tap a suggestion to type it (surface-osk-keys does the typing). The
-  // strip reserves its height like the keyboard does, so Hyprland stacks it on
-  // top of the keyboard and apps sit above both. Coloured like wvkbd.
+  // suggestions, the best in the middle, the mic for voice typing and the
+  // button that puts the keyboard away. Tap a suggestion to type it
+  // (surface-osk-keys does the typing). The strip reserves its height like the
+  // keyboard does, so Hyprland stacks it on top of the keyboard and apps sit
+  // above both. Coloured like wvkbd.
   property var suggestions: []
+
+  // Voice typing: the mic starts and stops surface-dictate (Vosk, through
+  // nerd-dictation), which types what you say at the cursor while you speak.
+  // Shown once it is installed; red while listening (its state file). Omarchy's
+  // own dictation keys stay on Voxtype, which types once you stop.
+  property bool dictationReady: false
+  property string dictationState: "idle"
+
+  Process {
+    id: dictationCheck
+    running: true
+    command: [root.home + "/.local/bin/surface-dictate", "check"]
+    onExited: function(exitCode) { root.dictationReady = exitCode === 0 }
+  }
+
+  FileView {
+    path: Quickshell.env("XDG_RUNTIME_DIR") + "/surface-dictate/state"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.dictationState = text().trim()
+    onLoadFailed: root.dictationState = "idle"
+  }
+
+  // Dictated words aren't the keyboard's: the next word starts fresh.
+  onDictationStateChanged: if (dictationState === "idle") run(home + "/.local/bin/surface-osk reset")
 
   FileView {
     path: Quickshell.env("XDG_RUNTIME_DIR") + "/surface-osk/suggestions.json"
@@ -354,7 +384,7 @@ Item {
     Row {
       id: stripRow
       anchors.fill: parent
-      readonly property real cell: (width - hideKeyboard.width) / 3
+      readonly property real cell: (width - mic.width - hideKeyboard.width) / 3
 
       // Left the second best, the middle the best, right the third.
       Repeater {
@@ -402,6 +432,48 @@ Item {
             enabled: slot.word !== ""
             onClicked: root.run(root.home + "/.local/bin/surface-osk accept " + slot.modelData)
           }
+        }
+      }
+
+      Item {
+        id: mic
+        readonly property bool listening: root.dictationState === "listening"
+        visible: root.dictationReady
+        width: visible ? 68 : 0
+        height: stripRow.height
+
+        Rectangle {
+          id: micPill
+          anchors.centerIn: parent
+          width: 46
+          height: 36
+          radius: 18
+          color: mic.listening ? "#e5484d" : "#2d2d2d"
+          visible: mic.listening || micPress.pressed
+
+          // A slow pulse while it listens.
+          SequentialAnimation on opacity {
+            running: mic.listening
+            loops: Animation.Infinite
+            onRunningChanged: if (!running) micPill.opacity = 1
+            NumberAnimation { to: 0.6; duration: 650; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1; duration: 650; easing.type: Easing.InOutSine }
+          }
+        }
+
+        Text {
+          anchors.centerIn: parent
+          text: "󰍬"
+          color: "white"
+          opacity: mic.listening ? 1 : (micPress.pressed ? 0.45 : 0.85)
+          font.family: Style.font.family
+          font.pixelSize: 22
+        }
+
+        MouseArea {
+          id: micPress
+          anchors.fill: parent
+          onClicked: root.run(root.home + "/.local/bin/surface-dictate toggle")
         }
       }
 

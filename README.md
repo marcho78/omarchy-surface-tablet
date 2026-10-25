@@ -70,6 +70,19 @@ git clone <this repo> ~/surface-tablet
   and next words, learns your words (plain-letter new words only after 3 uses;
   `~/.local/share/surface-osk/learned.json`, mode 600), and types a tapped suggestion
   with wtype. Suggestions on/off and Forget learned words on the Keyboard page.
+  Voice typing: the mic in the suggestion strip runs `~/.local/bin/surface-dictate
+  toggle`, red and pulsing while it listens (state in
+  `$XDG_RUNTIME_DIR/surface-dictate/state`). Vosk, through `nerd-dictation` (AUR, with
+  `python-vosk` and the small English model, `vosk-model-small-en-us-0.15`, in
+  `~/.local/share/vosk/`), types at the cursor while you speak, with `wtype`, and
+  corrects the last words as it hears more. Offline. The first word is capitalised;
+  the small model types no punctuation. It stops after 30 seconds without speech, or
+  when the keyboard is put away. Not in `--continuous` mode: that types each phrase
+  without a space before it, so phrases ran together. Omarchy's own dictation keys
+  (Super+Ctrl+X, hold F9 / Right Alt) use Voxtype as Omarchy sets it up: offline
+  Whisper, more accurate, with punctuation, but it types once you stop. Live Whisper
+  (`whisper.streaming`) was tried: on this i5-6300U each pass took 3.5-4 s against
+  Voxtype's 0.8 s tick, so it fell behind and stuck. `./install.sh --voice` sets both up.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`. Swaps in the tablet bar
   (clock, workspaces with O-Spotlight's search icon beside them, status pill), carries
   Stage Control's and O-Spotlight's bar entries over and their settings back, and reloads
