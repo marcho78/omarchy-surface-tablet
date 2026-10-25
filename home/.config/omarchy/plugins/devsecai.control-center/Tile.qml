@@ -15,7 +15,7 @@ Rectangle {
   signal tapped()
   signal moreTapped()
 
-  readonly property color onColor: Color.accent
+  property color onColor: Color.accent
   readonly property color ink: active ? Color.background : Color.foreground
 
   implicitHeight: 76

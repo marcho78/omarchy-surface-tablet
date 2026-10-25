@@ -1,22 +1,22 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 
-// Edge swipes for tablet mode, iPad style:
-//   bottom edge, swipe up a little   -> reveal the dock
-//   bottom edge, swipe up partway    -> Stage Control (marcho78.stage-control:
-//                                       every window, desktops to drag them to)
-//   bottom edge, swipe up further    -> Search (marcho78.o-spotlight)
-//   bottom edge, swipe up far        -> app drawer (over whatever is open)
+// Edge swipes for tablet mode:
+//   bottom edge, swipe up            -> app drawer (over whatever is open)
 //   bottom-right corner, swipe up    -> on-screen keyboard
-// Which of these a bottom swipe does goes by distance alone, shown while
-// swiping by a small list with the current choice lit.
+//   right edge, middle, swipe in     -> radial menu: your AI agent, Search,
+//                                       Apps, Stage Control and Dock around
+//                                       the finger; slide to one and let go,
+//                                       or tap one
+//   long press on the desktop        -> the same menu, all round the finger
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
-// The dock option is offered only while the dock is set to auto-hide; it asks
+// The dock choice is offered only while the dock is set to auto-hide; it asks
 // the dock to come up (omarchy.dock reveal, from dock-reveal.patch), and the
 // dock tucks itself away again a few seconds later.
 Item {
@@ -35,39 +35,6 @@ Item {
 
   // How far a finger must travel to count, in logical px.
   readonly property int swipeMin: 24
-  // Bottom swipe zones, as shares of the screen height: up to dockFraction
-  // the dock, up to switcherFraction Stage Control, up to searchFraction
-  // Search, beyond it the app drawer. (Timing a pause to tell them apart
-  // proved unreliable: a finger meaning to pause was often still moving when
-  // it lifted.)
-  readonly property real dockFraction: 0.15
-  readonly property real switcherFraction: 0.45
-  readonly property real searchFraction: 0.62
-
-  // The choice at a height up from the bottom edge.
-  function zoneAt(up) {
-    if (dockAutohide && up < screenH * dockFraction) return "dock"
-    if (up < screenH * switcherFraction) return "switcher"
-    if (up < screenH * searchFraction) return "search"
-    return "drawer"
-  }
-
-  // On the way back down, each swipeStep below the highest point reached steps
-  // one choice lower (about a row of the hint), so Stage Control to Dock is a
-  // short slide rather than all the way back to the bottom band.
-  readonly property int swipeStep: 50
-
-  // What letting go of the current bottom swipe would do. Going up it follows
-  // the zones; coming back down it steps down from the highest one reached,
-  // ending on the dock (the lowest choice) rather than dropping out under
-  // swipeMin; without the dock, back under swipeMin cancels.
-  readonly property string swipeTarget: {
-    if (!swipe.pressed || swipe.forKeyboard || !swipe.armed) return ""
-    if (!dockAutohide && swipe.up < swipeMin) return ""
-    var order = (dockAutohide ? ["dock"] : []).concat(["switcher", "search", "drawer"])
-    var steps = Math.floor((swipe.peak - swipe.up) / swipeStep)
-    return order[Math.max(0, order.indexOf(zoneAt(swipe.peak)) - steps)]
-  }
 
   FileView {
     path: root.home + "/.local/state/tablet-mode/state"
@@ -186,6 +153,8 @@ Item {
 
   // ------------------------------------------------------------ bottom edge
 
+  // Swipe up anywhere along it for the app drawer; the right-hand corner is
+  // the keyboard's.
   PanelWindow {
     id: bottom
     visible: root.tablet && !root.dockUp && !root.oskUp && !!root.screen
@@ -229,125 +198,299 @@ Item {
 
       property real startX: 0
       property real startY: 0
-      // How far up the finger is from where it started.
-      property real up: 0
-      // Whether it has gone far enough up to count as a swipe (swipeMin).
-      property bool armed: false
-      // The highest it has been.
-      property real peak: 0
       readonly property bool forKeyboard: startX > width * 0.82
 
       onPressed: function(mouse) {
         startX = mouse.x
         startY = mouse.y
-        up = 0
-        armed = false
-        peak = 0
-      }
-
-      onPositionChanged: function(mouse) {
-        up = startY - mouse.y
-        if (up >= root.swipeMin) armed = true
-        if (up > peak) peak = up
       }
 
       onReleased: function(mouse) {
-        up = startY - mouse.y
-        if (!armed) return
-        if (forKeyboard) {
-          if (up >= root.swipeMin) root.toggleKeyboard()
-          return
-        }
-        var target = root.swipeTarget
-        console.log("GESTDEBUG release up", Math.round(up), "->", target)
-        if (target === "drawer") root.run("omarchy-shell shell summon devsecai.app-drawer")
-        else if (target === "switcher") root.run("omarchy-shell stage-control toggle")
-        else if (target === "search") root.run("omarchy-shell shell summon marcho78.o-spotlight '{\"buttons\":true}'")
-        else if (target === "dock") root.showDock()
+        if (startY - mouse.y < root.swipeMin) return
+        if (forKeyboard) root.toggleKeyboard()
+        else root.run("omarchy-shell shell summon devsecai.app-drawer")
       }
     }
   }
 
-  // ------------------------------------------------------------ swipe hint
+  // ------------------------------------------------------------ radial menu
 
-  // While swiping up from the bottom edge: what letting go will do, as a
-  // short list (far to near, top to bottom) with the current choice lit.
-  // Always mapped, so it shows the instant a swipe starts; it never takes
-  // touches.
+  // Search, Apps, Stage Control and Dock around the finger. Choose by sliding
+  // towards one and letting go (by direction: more forgiving than how far),
+  // or let go first and tap one; tap anywhere else to put it away.
+  property bool menuOpen: false
+  property real menuX: 0
+  property real menuY: 0
+  // "left": fanned out to the left of the right edge; "around": all round.
+  property string menuFan: "left"
+  // The choice the finger is heading for.
+  property string menuHot: ""
+  // Wider when fanned out on one side, so five choices keep their room.
+  readonly property real menuRadius: menuFan === "left" ? 170 : 140
+
+  // AI opens the user's default agent (`omarchy default agent`), whichever it
+  // is, through omarchy-agent; with none set, Omarchy's picker.
+  readonly property var menuItems: {
+    var items = [
+      { key: "ai", icon: "󱚤", label: "AI" },
+      { key: "search", icon: "󰍉", label: "Search" },
+      { key: "drawer", icon: "󰀻", label: "Apps" },
+      { key: "switcher", icon: "󰕰", label: "Stage Control" }
+    ]
+    if (dockAutohide) items.push({ key: "dock", icon: "󰍜", label: "Dock" })
+    return items
+  }
+
+  // Where choice i sits, in screen coordinates.
+  function itemPoint(i) {
+    var n = menuItems.length
+    var degrees = menuFan === "left"
+      ? 90 + (n > 1 ? i * 180 / (n - 1) : 90)
+      : 90 - i * 360 / n
+    var a = degrees * Math.PI / 180
+    return { x: menuX + menuRadius * Math.cos(a), y: menuY - menuRadius * Math.sin(a) }
+  }
+
+  // The choice nearest the finger once it has left the middle.
+  function hotAt(x, y) {
+    if (Math.hypot(x - menuX, y - menuY) < 46) return ""
+    var best = "", bestDistance = 1e9
+    for (var i = 0; i < menuItems.length; i++) {
+      var p = itemPoint(i)
+      var d = Math.hypot(x - p.x, y - p.y)
+      if (d < bestDistance) { bestDistance = d; best = menuItems[i].key }
+    }
+    return best
+  }
+
+  function openMenu(x, y, fan) {
+    var room = menuRadius + 64
+    menuFan = fan
+    menuX = fan === "left" ? screenW - 72 : Math.max(room, Math.min(screenW - room, x))
+    menuY = Math.max(room, Math.min(screenH - room, y))
+    menuHot = ""
+    menuOpen = true
+  }
+
+  function chooseMenu(key) {
+    menuOpen = false
+    menuHot = ""
+    if (key === "drawer") run("omarchy-shell shell summon devsecai.app-drawer")
+    else if (key === "switcher") run("omarchy-shell stage-control toggle")
+    else if (key === "search") run("omarchy-shell shell summon marcho78.o-spotlight '{\"buttons\":true}'")
+    else if (key === "dock") showDock()
+    // Omarchy's default agent (omarchy default agent), in a terminal.
+    else if (key === "ai") run("omarchy-agent --pick")
+  }
+
+  // The middle of the right edge: swipe in to open the menu, and keep going.
+  PanelWindow {
+    id: side
+    visible: root.tablet && !root.oskUp && !!root.screen
+    screen: root.screen
+    anchors { right: true }
+    implicitWidth: 16
+    implicitHeight: Math.round(root.screenH * 0.36)
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "devsecai-gesture-side"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    // A hint that this edge does something.
+    Rectangle {
+      anchors.right: parent.right
+      anchors.rightMargin: 3
+      anchors.verticalCenter: parent.verticalCenter
+      width: 5
+      height: 72
+      radius: 3
+      color: Color.foreground
+      opacity: sideSwipe.pressed ? 0.75 : 0.3
+      Behavior on opacity { NumberAnimation { duration: 120 } }
+    }
+
+    MouseArea {
+      id: sideSwipe
+      anchors.fill: parent
+      preventStealing: true
+
+      property real startX: 0
+
+      // The strip sits centred on the right edge.
+      function screenPoint(mouse) {
+        return { x: root.screenW - side.width + mouse.x, y: (root.screenH - side.height) / 2 + mouse.y }
+      }
+
+      onPressed: function(mouse) { startX = mouse.x }
+
+      onPositionChanged: function(mouse) {
+        var p = screenPoint(mouse)
+        if (!root.menuOpen && startX - mouse.x >= root.swipeMin) root.openMenu(p.x, p.y, "left")
+        if (root.menuOpen) root.menuHot = root.hotAt(p.x, p.y)
+      }
+
+      onReleased: if (root.menuOpen && root.menuHot !== "") root.chooseMenu(root.menuHot)
+    }
+  }
+
+  // Long press on the desktop (wherever no window is): the same menu, all
+  // round the finger. Sits just above the wallpaper, under every window.
   PanelWindow {
     visible: root.tablet && !!root.screen
     screen: root.screen
-    anchors { bottom: true }
-    margins { bottom: Math.round(root.screenH * 0.42) }
-    implicitWidth: 268
-    implicitHeight: hintColumn.implicitHeight + 20
+    anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    mask: Region {}
+    WlrLayershell.layer: WlrLayer.Bottom
+    WlrLayershell.namespace: "devsecai-gesture-desktop"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    MouseArea {
+      anchors.fill: parent
+      pressAndHoldInterval: 450
+      onPressAndHold: function(mouse) { root.openMenu(mouse.x, mouse.y, "around") }
+      onPositionChanged: function(mouse) { if (root.menuOpen) root.menuHot = root.hotAt(mouse.x, mouse.y) }
+      onReleased: if (root.menuOpen && root.menuHot !== "") root.chooseMenu(root.menuHot)
+    }
+  }
+
+  // The menu itself: drawn over everything while open; takes the taps once the
+  // finger that opened it has let go.
+  PanelWindow {
+    visible: root.menuOpen && !!root.screen
+    screen: root.screen
+    anchors { top: true; bottom: true; left: true; right: true }
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "devsecai-gesture-hint"
+    WlrLayershell.namespace: "devsecai-radial-menu"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     Rectangle {
       anchors.fill: parent
-      radius: 24
-      color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.94)
-      border.width: 1
-      border.color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.14)
-      opacity: root.swipeTarget !== "" ? 1 : 0
-      Behavior on opacity { NumberAnimation { duration: 90 } }
+      color: "black"
+      opacity: root.menuOpen ? 0.55 : 0
+      Behavior on opacity { NumberAnimation { duration: 160 } }
+    }
 
-      Column {
-        id: hintColumn
-        anchors.centerIn: parent
-        spacing: 4
+    // A faint ring through the choices, so they read as one menu.
+    Rectangle {
+      x: root.menuX - width / 2
+      y: root.menuY - height / 2
+      width: root.menuRadius * 2
+      height: width
+      radius: width / 2
+      color: "transparent"
+      border.width: 2
+      border.color: Qt.rgba(1, 1, 1, 0.12)
+      opacity: root.menuOpen ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 200 } }
+    }
 
-        Repeater {
-          model: [
-            { key: "drawer", icon: "󰀻", label: "Apps" },
-            { key: "search", icon: "󰍉", label: "Search" },
-            { key: "switcher", icon: "󰕰", label: "Stage Control" }
-          ].concat(root.dockAutohide ? [{ key: "dock", icon: "󰍜", label: "Dock" }] : [])
+    MouseArea {
+      anchors.fill: parent
+      onClicked: function(mouse) {
+        for (var i = 0; i < root.menuItems.length; i++) {
+          var p = root.itemPoint(i)
+          if (Math.hypot(mouse.x - p.x, mouse.y - p.y) < 52) {
+            root.chooseMenu(root.menuItems[i].key)
+            return
+          }
+        }
+        root.menuOpen = false
+      }
+    }
 
-          Rectangle {
-            required property var modelData
-            readonly property bool current: root.swipeTarget === modelData.key
-            width: 248
-            height: 46
-            radius: 17
-            color: current ? Color.accent : "transparent"
-            Behavior on color { ColorAnimation { duration: 90 } }
+    // Where it opened.
+    Rectangle {
+      x: root.menuX - width / 2
+      y: root.menuY - height / 2
+      width: 14
+      height: 14
+      radius: 7
+      color: Color.foreground
+      opacity: 0.5
+    }
 
-            Row {
-              anchors.left: parent.left
-              anchors.leftMargin: 18
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: 14
+    Repeater {
+      model: root.menuItems
 
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: modelData.icon
-                color: parent.parent.current ? Color.background : Color.foreground
-                opacity: parent.parent.current ? 1 : 0.6
-                font.family: Style.font.family
-                font.pixelSize: 20
-              }
+      Item {
+        id: choice
+        required property var modelData
+        required property int index
+        readonly property var point: root.itemPoint(index)
+        readonly property bool hot: root.menuHot === modelData.key
+        x: point.x - width / 2
+        y: point.y - 42
+        width: 132
+        height: 124
 
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: modelData.label
-                color: parent.parent.current ? Color.background : Color.foreground
-                opacity: parent.parent.current ? 1 : 0.6
-                font.family: Style.font.family
-                font.pixelSize: 15
-                font.bold: parent.parent.current
-              }
-            }
+        // Springs out from the middle, one after another.
+        scale: root.menuOpen ? (hot ? 1.18 : 1) : 0.5
+        opacity: root.menuOpen ? 1 : 0
+        Behavior on scale {
+          SequentialAnimation {
+            PauseAnimation { duration: root.menuOpen && !choice.hot ? choice.index * 35 : 0 }
+            NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+          }
+        }
+        Behavior on opacity { NumberAnimation { duration: 140 } }
+
+        RectangularShadow {
+          anchors.fill: disc
+          radius: disc.radius
+          blur: 24
+          offset.y: 6
+          color: Qt.rgba(0, 0, 0, 0.55)
+        }
+
+        Rectangle {
+          id: disc
+          anchors.horizontalCenter: parent.horizontalCenter
+          width: 84
+          height: 84
+          radius: 42
+          color: choice.hot ? Color.accent : Color.popups.background
+          border.width: 2
+          border.color: choice.hot ? Qt.lighter(Color.accent, 1.3)
+            : Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.35)
+          Behavior on color { ColorAnimation { duration: 120 } }
+
+          Text {
+            anchors.centerIn: parent
+            text: choice.modelData.icon
+            color: choice.hot ? Color.background : Color.foreground
+            font.family: Style.font.family
+            font.pixelSize: 34
+          }
+        }
+
+        // The name on a dark pill, readable over any wallpaper or app.
+        Rectangle {
+          anchors.top: disc.bottom
+          anchors.topMargin: 8
+          anchors.horizontalCenter: parent.horizontalCenter
+          width: label.implicitWidth + 20
+          height: label.implicitHeight + 8
+          radius: height / 2
+          color: choice.hot ? Color.accent : Qt.rgba(0, 0, 0, 0.7)
+
+          Text {
+            id: label
+            anchors.centerIn: parent
+            text: choice.modelData.label
+            color: choice.hot ? Color.background : "white"
+            font.family: Style.font.family
+            font.pixelSize: 15
+            font.bold: true
           }
         }
       }
     }
   }
+
 
   // ------------------------------------------------------------ screensaver
 

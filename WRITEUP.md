@@ -50,11 +50,13 @@ switched by hand from the bar.
 
 - **Top edge.** Pull down on the left for the Notification Center, on the
   right for the Control Center (the bar is for reading, not tapping).
-- **Bottom edge, by distance**, shown live in a small menu: a little = Dock
-  (when it auto-hides), partway = Stage Control, further = Search, far = Apps.
-  Coming back down steps one choice lower per short slide, so Dock is easy to
-  reach again from Stage Control.
-- **Bottom-right corner:** the on-screen keyboard.
+- **Bottom edge:** swipe up for the app drawer; the bottom-right corner is the
+  on-screen keyboard.
+- **Radial menu**, from a short inward swipe at the middle of the right edge
+  (works over any app) or a long press on empty desktop: AI (your default
+  agent), Search, Apps, Stage Control and Dock around the finger, chosen by
+  direction. It replaced a bottom-swipe menu chosen by how far you swiped,
+  which kept being hard to aim (even with a step-down rule on the way back).
 - **Workspaces:** swipe from the left or right edge (desktop too), or three
   fingers on the touchpad.
 - **Screensaver.** Omarchy's screensaver closes only on a key press; in tablet
@@ -63,8 +65,10 @@ switched by hand from the bar.
 ## 4. Panels and apps (tablet mode)
 
 - **Control Center:** Wi-Fi, Bluetooth, keyboard (and its settings page),
-  screenshot, dock always-show / auto-hide, back to desktop, volume,
-  brightness, and a Media Center tile for Uber TV.
+  dock always-show / auto-hide, screenshot, screen recording, night light,
+  stay awake, reminders (a touch page), back to desktop, a Sound page
+  (Android style: system, microphone, each app, output and input devices),
+  Media Center for Uber TV, volume and brightness.
 - **Notification Center:** Omarchy's notification history grouped by app,
   slide to dismiss, Clear All, Do Not Disturb, frosted glass behind it.
 - **App drawer:** every app as large icons with a row of recent ones; searches
@@ -125,6 +129,11 @@ plain V4L2 webcams).
   `./install.sh` (or `--home`, `--patches`, `--camera`, `--voice`) sets it up.
 
 ## 9. Open items
+
+- Window controls in tablet mode (next): a setting for title bars or an
+  iPad-style handle; the title bar's maximize button fights tablet mode's
+  fitting (first press snaps back, second leaves a maximized window with no
+  title bar and no way out without a keyboard).
 
 - Touch in desktop mode: bar taps still turn into drags there (the lock is
   tablet-only), and the edge swipes are tablet-only.

@@ -174,7 +174,7 @@ function M.after()
   -- comes down from the top edge, over the bar, as if dragging it along.
   -- The swipe strips are invisible.
   hl.layer_rule({ match = { namespace = "^(wvkbd|osk|devsecai-osk-strip)$" }, animation = "slide" })
-  hl.layer_rule({ match = { namespace = "^devsecai-(control-center|notification-center|app-drawer|app-switcher|gesture-.*)$" }, no_anim = true, animation = "none" })
+  hl.layer_rule({ match = { namespace = "^devsecai-(control-center|notification-center|app-drawer|app-switcher|radial-menu|gesture-.*)$" }, no_anim = true, animation = "none" })
 
   hl.config({
     general = { gaps_in = 6, gaps_out = 10, border_size = 2 },

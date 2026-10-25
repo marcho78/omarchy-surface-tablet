@@ -61,8 +61,10 @@ Rectangle {
     anchors.rightMargin: 18
     anchors.verticalCenter: parent.verticalCenter
     text: Math.round(slider.value * 100) + "%"
-    color: Color.foreground
-    opacity: 0.75
+    // Dark on the fill once the fill reaches it, so it stays readable.
+    readonly property bool onFill: fill.width > x - 6
+    color: onFill ? Color.background : Color.foreground
+    opacity: onFill ? 0.85 : 0.75
     font.family: Style.font.family
     font.pixelSize: 13
     font.bold: true

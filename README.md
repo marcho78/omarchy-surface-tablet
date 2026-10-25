@@ -97,17 +97,24 @@ git clone <this repo> ~/surface-tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
-  - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
-    volume, brightness, ...), with a Media Center tile that opens Uber TV when it is installed
-  - `devsecai.gestures`: edge swipes (bottom: by distance, shown live while swiping:
-    a little = dock (only while the dock is set to auto-hide), partway (to 45% of the
-    screen) = Stage Control, further (to 62%) = Search (O-Spotlight), far = app drawer;
-    bottom-right: keyboard,
-    top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab.
-    Coming back down to the bottom after a swipe has started keeps Dock lit instead of
-    cancelling. While Omarchy's screensaver shows in tablet mode, a full-screen tap layer
-    closes it on any tap (SIGHUP to `omarchy-screensaver`, which exits cleanly): it only
-    closes on a key press, and there is no keyboard.
+  - `devsecai.control-center`: Control Center panel: Wi-Fi, Bluetooth, keyboard (and its settings
+    page), Dock always-show/auto-hide, screenshot, Record (whole screen with system sound,
+    `omarchy-capture-screenrecording`; red while recording), Night Light and Stay Awake (Omarchy's
+    toggles), Reminder (a page: 5-60 minutes, an optional message, Set / Clear all, what's coming
+    up; `omarchy-reminder`), back to desktop, Sound (a page, Android style: system volume,
+    microphone, a slider per app playing sound, and the output and input devices to use), Media
+    Center (Uber TV, when installed), volume and brightness. It takes the keyboard on demand
+    (typing a reminder's message with the on-screen keyboard)
+  - `devsecai.gestures`: edge swipes in tablet mode. Bottom edge, swipe up: app drawer;
+    bottom-right corner: keyboard; top-right / top-left pull-down: Control Center /
+    Notification Center. Middle of the right edge, swipe in: a radial menu (AI, Search, Apps,
+    Stage Control, and Dock while it auto-hides) fanned out round the finger; slide to one and
+    let go, or let go and tap one. Long press on empty desktop: the same menu all round. AI is
+    `omarchy-agent --pick`, the user's default agent whatever it is. Choosing by direction
+    replaced an earlier bottom-swipe menu chosen by distance, which was hard to aim. While
+    Omarchy's screensaver shows in tablet mode, a tap anywhere closes it (SIGHUP to
+    `omarchy-screensaver`, which exits cleanly): it only closes on a key press otherwise. Also
+    the keyboard's suggestion strip (Esc, suggestions, mic, hide)
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
     (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to

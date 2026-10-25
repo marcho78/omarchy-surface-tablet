@@ -61,6 +61,14 @@ Item {
     onLoadFailed: root.mediaCenter = false
   }
 
+  // Omarchy's screen recording, Stay Awake, night light and reminders, read
+  // with their own status commands while the panel is open.
+  property bool recording: false
+  property bool stayAwake: false
+  property bool nightLight: false
+  property int nightTemp: 0
+  property var reminders: []
+
   readonly property var battery: UPower.displayDevice
   readonly property int batteryPercent: battery && battery.isPresent ? Math.round(battery.percentage * 100) : -1
   readonly property bool charging: !!battery && (battery.state === UPowerDeviceState.Charging
@@ -70,14 +78,15 @@ Item {
 
   // ---------------------------------------------------------------- panel API
 
-  // "main", or "keyboard" for the on-screen keyboard settings. Open on a page
-  // with: omarchy-shell shell summon devsecai.control-center '{"page":"keyboard"}'
+  // "main", "keyboard" for the on-screen keyboard settings, "sound" or "reminder". Open
+  // on a page with:
+  //   omarchy-shell shell summon devsecai.control-center '{"page":"keyboard"}'
   property string page: "main"
 
   function open(payloadJson) {
     var payload = {}
     try { payload = JSON.parse(payloadJson || "{}") || {} } catch (e) {}
-    page = payload.page === "keyboard" ? "keyboard" : "main"
+    page = ["keyboard", "reminder", "sound"].indexOf(payload.page) >= 0 ? payload.page : "main"
     opened = true
     ssidProc.running = true
     brightnessRead.running = true
@@ -120,13 +129,52 @@ Item {
     }
   }
 
+  Process {
+    id: statusProc
+    command: ["bash", "-c",
+      "r=false; omarchy-capture-screenrecording --status >/dev/null 2>&1 && r=true; " +
+      "printf '{\"recording\":%s,\"idle\":%s,\"night\":%s,\"reminders\":%s}\\n' " +
+      "$r \"$(omarchy-toggle-idle status)\" \"$(omarchy-toggle-nightlight --status)\" \"$(omarchy-reminder show --json)\""]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var s = JSON.parse(String(text || "").trim())
+          root.recording = s.recording === true
+          root.stayAwake = !!s.idle && s.idle.enabled === true
+          root.nightLight = !!s.night && s.night.enabled === true
+          root.nightTemp = s.night && s.night.temperature ? s.night.temperature : 0
+          root.reminders = s.reminders && s.reminders.reminders ? s.reminders.reminders : []
+        } catch (e) {}
+      }
+    }
+  }
+
+  function readStatus() {
+    if (!statusProc.running) statusProc.running = true
+  }
+
+  // A toggle takes a moment to land; read again after it.
+  Timer {
+    id: statusSoon
+    interval: 700
+    onTriggered: root.readStatus()
+  }
+
+  function toggle(command) {
+    run(command)
+    statusSoon.restart()
+  }
+
   // Read on opening (the first tick), then every few seconds while open.
   Timer {
     interval: 3000
     repeat: true
     running: root.opened
     triggeredOnStart: true
-    onTriggered: ssidProc.running = true
+    onTriggered: {
+      ssidProc.running = true
+      root.readStatus()
+    }
   }
 
   Process {
@@ -159,6 +207,9 @@ Item {
   OverlayWindow {
     id: window
     shown: root.opened
+    // On demand, not exclusive: an exclusive grab would send the on-screen
+    // keyboard's touches here too (typing a reminder's message).
+    shownKeyboardFocus: WlrKeyboardFocus.OnDemand
     WlrLayershell.namespace: "devsecai-control-center"
 
     // Tap anywhere outside the card, or swipe up anywhere, to close.
@@ -285,6 +336,20 @@ Item {
           onBack: root.page = "main"
         }
 
+        SoundPage {
+          width: parent.width
+          visible: root.page === "sound"
+          onBack: root.page = "main"
+        }
+
+        ReminderPage {
+          width: parent.width
+          visible: root.page === "reminder"
+          reminders: root.reminders
+          onBack: root.page = "main"
+          onChanged: root.readStatus()
+        }
+
         Column {
           width: parent.width
           visible: root.page === "main"
@@ -330,14 +395,6 @@ Item {
               onMoreTapped: root.page = "keyboard"
             }
 
-            Tile {
-              width: parent.cell
-              icon: "󰄀"
-              title: "Screenshot"
-              subtitle: "Capture screen"
-              onTapped: root.runAndClose("omarchy capture screenshot")
-            }
-
             // Always show, or auto-hide (then a swipe up from the bottom edge
             // brings it back). Apps re-fit around a dock that stays.
             Tile {
@@ -355,21 +412,81 @@ Item {
 
             Tile {
               width: parent.cell
+              icon: "󰄀"
+              title: "Screenshot"
+              subtitle: "Capture screen"
+              onTapped: root.runAndClose("omarchy capture screenshot")
+            }
+
+            // Whole screen with system sound; tap again to stop.
+            Tile {
+              width: parent.cell
+              icon: "󰑊"
+              title: "Record"
+              subtitle: root.recording ? "Recording" : "Whole screen"
+              active: root.recording
+              onColor: "#e5484d"
+              onTapped: {
+                if (root.recording) root.toggle("omarchy-capture-screenrecording --stop-recording")
+                else root.runAndClose("omarchy-capture-screenrecording --fullscreen --with-desktop-audio")
+              }
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰖔"
+              title: "Night Light"
+              subtitle: root.nightLight ? "On · " + root.nightTemp + " K" : "Off"
+              active: root.nightLight
+              onTapped: root.toggle("omarchy-toggle-nightlight")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰅶"
+              title: "Stay Awake"
+              subtitle: root.stayAwake ? "On" : "Off"
+              active: root.stayAwake
+              onTapped: root.toggle("omarchy-toggle-idle toggle")
+            }
+
+            Tile {
+              width: parent.cell
+              icon: "󰢌"
+              title: "Reminder"
+              subtitle: root.reminders.length > 0
+                ? root.reminders[0].atTime + (root.reminders.length > 1 ? " · +" + (root.reminders.length - 1) : "")
+                : "None set"
+              active: root.reminders.length > 0
+              onTapped: root.page = "reminder"
+            }
+
+            Tile {
+              width: parent.cell
               icon: "󰌢"
               title: "Desktop"
               subtitle: "Exit tablet"
               onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
             }
-          }
 
-          // Uber TV's bar icon is hidden in tablet mode, so it opens from here.
-          Tile {
-            width: parent.width
-            visible: root.mediaCenter
-            icon: String.fromCodePoint(0xf040c)
-            title: "Media Center"
-            subtitle: "Uber TV"
-            onTapped: root.runAndClose("omarchy-shell shell summon marcho78.om-pg")
+            // System, microphone, each app, and where sound goes.
+            Tile {
+              width: parent.cell
+              icon: root.muted ? "󰝟" : "󰕾"
+              title: "Sound"
+              subtitle: root.muted ? "Muted" : Math.round(root.volume * 100) + "%"
+              onTapped: root.page = "sound"
+            }
+
+            // Uber TV's bar icon is hidden in tablet mode, so it opens from here.
+            Tile {
+              width: parent.cell
+              visible: root.mediaCenter
+              icon: String.fromCodePoint(0xf040c)
+              title: "Media Center"
+              subtitle: "Uber TV"
+              onTapped: root.runAndClose("omarchy-shell shell summon marcho78.om-pg")
+            }
           }
 
           PillSlider {
