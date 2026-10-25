@@ -14,8 +14,9 @@ import qs.Commons
 // swiping by a small list with the current choice lit.
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
-// The dock reveals when the pointer reaches the screen edge, so revealing it
-// warps the (hidden) pointer there, and tucking it away warps it back.
+// The dock option is offered only while the dock is set to auto-hide; it asks
+// the dock to come up (omarchy.dock reveal, from dock-reveal.patch), and the
+// dock tucks itself away again a few seconds later.
 Item {
   id: root
 
@@ -42,7 +43,7 @@ Item {
   // What letting go of the current bottom swipe would do.
   readonly property string swipeTarget: {
     if (!swipe.pressed || swipe.forKeyboard || swipe.up < swipeMin) return ""
-    if (swipe.up < screenH * dockFraction) return "dock"
+    if (dockAutohide && swipe.up < screenH * dockFraction) return "dock"
     if (swipe.up < screenH * drawerFraction) return "switcher"
     return "drawer"
   }
@@ -59,27 +60,39 @@ Item {
     Quickshell.execDetached(["bash", "-c", command])
   }
 
-  function warp(x, y) {
-    Quickshell.execDetached(["hyprctl", "dispatch",
-      "hl.dsp.cursor.move({ x = " + Math.round(x) + ", y = " + Math.round(y) + " })"])
+  // The dock's auto-hide setting, as Omarchy keeps it in shell.json. With the
+  // dock always shown there is nothing to bring up, so no dock option.
+  property bool dockAutohide: false
+
+  FileView {
+    path: root.home + "/.config/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var config = JSON.parse(text())
+        root.dockAutohide = !!(config.dock && config.dock.autohide === true)
+      } catch (e) {}
+    }
   }
 
+  // The dock comes up for a few seconds; the swipe strip steps aside
+  // meanwhile so the dock's icons take every tap.
   function showDock() {
     dockUp = true
-    warp(screenW / 2, screenH - 1)
     dockTimeout.restart()
+    run("omarchy-shell -q omarchy.dock reveal")
   }
 
   function hideDock() {
-    if (!dockUp) return
     dockUp = false
     dockTimeout.stop()
-    warp(screenW / 2, screenH / 2)
   }
 
   Timer {
     id: dockTimeout
-    interval: 8000
+    interval: 5000
     onTriggered: root.hideDock()
   }
 
@@ -263,9 +276,8 @@ Item {
         Repeater {
           model: [
             { key: "drawer", icon: "󰀻", label: "Apps" },
-            { key: "switcher", icon: "󰕰", label: "App switcher" },
-            { key: "dock", icon: "󰍜", label: "Dock" }
-          ]
+            { key: "switcher", icon: "󰕰", label: "App switcher" }
+          ].concat(root.dockAutohide ? [{ key: "dock", icon: "󰍜", label: "Dock" }] : [])
 
           Rectangle {
             required property var modelData

@@ -32,6 +32,8 @@ git clone <this repo> ~/surface-tablet
     floating ones) and follows its Always show / Auto-hide setting in
     every case. Shown, it reserves its edge (tiled and maximized apps stop above it); auto-hidden,
     the bottom edge brings it back by pointer or finger, also over fullscreen apps.
+  - `dock-reveal.patch`: an `omarchy-shell omarchy.dock reveal` command that brings an
+    auto-hidden dock up for a few seconds; tablet mode's short bottom swipe uses it.
 
 **Home** (symlinked from `home/`)
 - `~/.local/bin/surface-osk`: Type Cover watcher. Cover off → tablet mode on and
@@ -51,7 +53,8 @@ git clone <this repo> ~/surface-tablet
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
     volume, brightness, ...)
   - `devsecai.gestures`: edge swipes (bottom: by distance, shown live while swiping:
-    a little = dock, partway = app switcher, far = app drawer; bottom-right: keyboard,
+    a little = dock (only while the dock is set to auto-hide), partway = app switcher,
+    far = app drawer; bottom-right: keyboard,
     top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app

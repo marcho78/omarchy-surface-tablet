@@ -1,0 +1,24 @@
+--- plugins/dock/Dock.qml	2026-10-24 20:08:17.880365189 -0700
++++ plugins/dock/Dock.qml	2026-10-24 20:08:17.898666848 -0700
+@@ -350,6 +350,21 @@
+     // The layout commands call this after changing a workspace's mode.
+     function refresh(): void { root.refresh() }
+     function apps(): void { appGrid.toggle() }
++    // Surface tablet patch: bring an auto-hidden dock up on the focused
++    // screen for a few seconds, as a touch on its edge does. Tablet mode's
++    // bottom swipe calls this.
++    function reveal(): void { root.revealFocused() }
++  }
++
++  function revealFocused() {
++    var monitor = Hyprland.focusedMonitor
++    var windows = docks.instances
++    for (var i = 0; i < windows.length; i++) {
++      var dockWindow = windows[i]
++      if (monitor && dockWindow.screen && dockWindow.screen.name !== monitor.name) continue
++      // revealByTouch comes with dock-autohide-touch.patch.
++      if (typeof dockWindow.revealByTouch === "function") dockWindow.revealByTouch()
++    }
+   }
+ 
+   // An app dragged out of the app grid: the grid holds the pointer and
