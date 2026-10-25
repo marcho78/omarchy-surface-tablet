@@ -16,7 +16,7 @@
 
 pkgname=wvkbd
 pkgver=0.20
-pkgrel=1.5
+pkgrel=1.6
 pkgdesc='On-screen keyboard for wlroots (touch fixes: held keys repeat, magnified key previews)'
 url='https://git.sr.ht/~proycon/wvkbd'
 arch=('x86_64' 'i686' 'armv7h' 'aarch64')
@@ -35,6 +35,9 @@ sha512sums=('1c5204dc00f7a3bdfd199dfa88b513c46249b7832ba546c0554940539fcc4e0d553
             '7b294ed53f2a84ce575c9659b4036dd1be63ec81d3272188ec089d9d9a866ffafee3b7db6695d81b57168f927bf3edf811708e6d0006027c679a091dcd677112')
 
 prepare() {
+  # The Makefile makes build-mobintl/config.h only when it is missing, so one
+  # left over from an earlier build would keep the old config (colour schemes).
+  rm -rf "$pkgname-v$pkgver/build-mobintl"
   patch -d "$pkgname-v$pkgver" -p1 <hold-to-repeat.patch
   patch -d "$pkgname-v$pkgver" -p1 <key-linger.patch
   patch -d "$pkgname-v$pkgver" -p1 <key-preview.patch

@@ -6,6 +6,8 @@
 #   surface-osk          run the watcher (started from autostart.lua)
 #   surface-osk toggle   show/hide the keyboard manually
 #   surface-osk show|hide
+#   surface-osk restart  restart the keyboard (after updating wvkbd, say), keeping
+#                        it open or hidden as it was
 #   surface-osk set style standard|numbers
 #   surface-osk set size small|medium|large
 #   surface-osk set click on|off
@@ -147,6 +149,21 @@ case $1 in
     ;;
 esac
 
+restart_wvkbd() {
+  if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
+    # Restart with the current settings, open again if it was open.
+    if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi
+    pkill -x wvkbd-mobintl
+    while pgrep -x wvkbd-mobintl >/dev/null; do sleep 0.05; done
+    if [[ -n $shown ]]; then start_wvkbd; else start_wvkbd --hidden; fi
+  fi
+}
+
+if [[ $1 == restart ]]; then
+  restart_wvkbd
+  exit
+fi
+
 if [[ $1 == set ]]; then
   case $2 in
     style) [[ $3 =~ ^(standard|numbers)$ ]] && STYLE=$3 ;;
@@ -157,13 +174,7 @@ if [[ $1 == set ]]; then
   esac
   mkdir -p "$(dirname "$SETTINGS")"
   printf 'STYLE=%s\nSIZE=%s\nCLICK=%s\nPREDICT=%s\n' "$STYLE" "$SIZE" "$CLICK" "$PREDICT" >"$SETTINGS"
-  if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
-    # Restart with the new layout, open again if it was open.
-    if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi
-    pkill -x wvkbd-mobintl
-    while pgrep -x wvkbd-mobintl >/dev/null; do sleep 0.05; done
-    if [[ -n $shown ]]; then start_wvkbd; else start_wvkbd --hidden; fi
-  fi
+  restart_wvkbd
   exit
 fi
 
