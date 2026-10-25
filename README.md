@@ -31,6 +31,12 @@ git clone <this repo> ~/surface-tablet
   (`system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch`) into
   `/usr/lib/modules/<kernel>/updates/` (no package files touched), and a pacman hook
   rebuilds it for each new linux-surface kernel. `surface-camera-fix --remove` undoes it.
+  Apps reach the cameras through PipeWire: Snapshot ("Camera", installed with them) takes
+  photos and videos with both. Browsers are untested (Chromium needs
+  `--enable-features=WebRtcPipeWireCamera`, not set). Monologue can't: Qt's camera
+  backends only open V4L2 webcams (its GStreamer backend skips PipeWire's libcamera
+  cameras too), and these cameras only work through libcamera. A v4l2loopback virtual
+  webcam fed from PipeWire would be the way; not set up.
 
 - Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
   applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook

@@ -65,13 +65,14 @@ install_omarchy_patches() {
 
 # The back camera's driver rebuilt with the black level libcamera expects,
 # plus a pacman hook that rebuilds it for each new linux-surface kernel. Takes
-# effect when the driver next loads (reboot).
+# effect when the driver next loads (reboot). Snapshot is a camera app that
+# reaches the cameras through PipeWire.
 install_camera_fix() {
   sudo install -Dm755 "$REPO/system/usr/local/bin/surface-camera-fix" /usr/local/bin/surface-camera-fix
   sudo install -Dm644 "$REPO/system/etc/pacman.d/hooks/surface-camera-fix.hook" /etc/pacman.d/hooks/surface-camera-fix.hook
   sudo install -Dm644 "$REPO/system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch" \
     /usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch
-  sudo pacman -S --needed --noconfirm libcamera libcamera-ipa libcamera-tools pipewire-libcamera
+  sudo pacman -S --needed --noconfirm libcamera libcamera-ipa libcamera-tools pipewire-libcamera snapshot
   sudo /usr/local/bin/surface-camera-fix
 }
 
