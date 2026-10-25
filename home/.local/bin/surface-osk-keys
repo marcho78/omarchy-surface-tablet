@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+"""Key reader for the on-screen keyboard: key clicks and Gboard-style word
+suggestions.
+
+wvkbd -o prints each key the moment it is pressed: the character itself, " "
+for space, "\\n" for Enter, "\\b" for Backspace, "\\t" for Tab; modifiers and
+layout keys print nothing. This reads that stream on stdin and
+
+  --click FILE   plays FILE for every key, from the sound server's sample
+                 cache (about 10 ms a click rather than a player starting up);
+  --predict      follows the word being typed and writes the three best
+                 suggestions, best first, to
+                 $XDG_RUNTIME_DIR/surface-osk/suggestions.json for the strip
+                 above the keyboard (devsecai.gestures shell plugin).
+
+Commands come in on the FIFO $XDG_RUNTIME_DIR/surface-osk/control, one per
+line, from `surface-osk accept N | reset | forget`. Accepting types the rest of
+suggestion N (or replaces a typo) plus a space, with wtype.
+
+Words and how common they are come from fcitx5's English dictionary. What it
+learns, how often you use dictionary words and which follow which, is kept in
+~/.local/share/surface-osk/learned.json, readable by you only. A word outside
+the dictionary is learned only if it is plain letters (no digits or symbols,
+so not most passwords) and only offered once typed three times.
+"""
+
+import bisect
+import codecs
+import json
+import math
+import os
+import re
+import selectors
+import struct
+import subprocess
+import sys
+import time
+
+DICTIONARY = "/usr/share/fcitx5/spell/en_dict.fscd"
+RUNTIME = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "surface-osk")
+SUGGESTIONS = os.path.join(RUNTIME, "suggestions.json")
+CONTROL = os.path.join(RUNTIME, "control")
+LEARNED = os.path.expanduser("~/.local/share/surface-osk/learned.json")
+DRY_RUN = os.environ.get("SURFACE_OSK_DRY_RUN") == "1"  # print instead of typing
+
+# Short prefixes match thousands of words: keep the most common few per prefix.
+PREFIX_INDEX_LENGTH = 3
+PREFIX_INDEX_SIZE = 12
+NEW_WORD_MIN_USES = 3
+NEW_WORD = re.compile(r"[a-z][a-z']{2,}")
+WORD_CHARS = "'’"
+SENTENCE_END = ".!?\n"
+# Before anything has been learned: common sentence starts and fillers.
+STARTERS = ["I", "The", "Thanks"]
+FILLERS = ["the", "and", "to"]
+# Scoring: dictionary weights run from about 0 (most common) down to -65536.
+# What you use, and what you use after the previous word, lifts a word; a
+# correction (a word one edit away from what was typed) sits a little lower
+# than a completion of it. A learned word outside the dictionary starts at
+# NEW_WORD_WEIGHT.
+USE_BOOST = 2000
+PAIR_BOOST = 6000
+CORRECTION_PENALTY = 3000
+NEW_WORD_WEIGHT = -4000
+
+
+def load_dictionary(path):
+    """fcitx5's .fscd: "FSCD0000", a word count, then per word a signed 16-bit
+    weight and the word, NUL-terminated. Common words weigh just under zero,
+    rarer ones further down; the rarest wrap round to positive."""
+    try:
+        data = open(path, "rb").read()
+    except OSError:
+        return {}
+    if data[:8] != b"FSCD0000":
+        return {}
+    count = struct.unpack_from("<I", data, 8)[0]
+    weights, pos = {}, 12
+    while pos < len(data) - 2 and len(weights) < count:
+        weight = struct.unpack_from("<h", data, pos)[0]
+        end = data.find(b"\0", pos + 2)
+        if end < 0:
+            break
+        word = data[pos + 2:end].decode("utf-8", "replace")
+        weights[word] = weight if weight <= 0 else weight - 65536
+        pos = end + 1
+    return weights
+
+
+class Predictor:
+    def __init__(self):
+        self.weights = load_dictionary(DICTIONARY)
+        self.words = sorted(self.weights)
+        self.prefix_index = {}
+        for word in sorted(self.weights, key=self.weights.get, reverse=True):
+            for length in range(1, min(PREFIX_INDEX_LENGTH, len(word)) + 1):
+                bucket = self.prefix_index.setdefault(word[:length], [])
+                if len(bucket) < PREFIX_INDEX_SIZE:
+                    bucket.append(word)
+        self.uses, self.pairs, self.new_words = {}, {}, {}
+        self.load_learned()
+        self.dirty, self.saved_at = False, time.monotonic()
+        self.reset()
+
+    # ------------------------------------------------------------ learning
+
+    def load_learned(self):
+        try:
+            with open(LEARNED) as f:
+                data = json.load(f)
+            self.uses = {k: int(v) for k, v in data.get("uses", {}).items()}
+            self.pairs = {k: {w: int(c) for w, c in v.items()} for k, v in data.get("pairs", {}).items()}
+            self.new_words = {k: int(v) for k, v in data.get("new_words", {}).items()}
+        except (OSError, ValueError, AttributeError):
+            pass
+
+    def save_learned(self, force=False):
+        if not self.dirty or (not force and time.monotonic() - self.saved_at < 5):
+            return
+        os.makedirs(os.path.dirname(LEARNED), exist_ok=True)
+        tmp = LEARNED + ".tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump({"uses": self.uses, "pairs": self.pairs, "new_words": self.new_words}, f)
+        os.replace(tmp, LEARNED)
+        self.dirty, self.saved_at = False, time.monotonic()
+
+    def forget(self):
+        self.uses, self.pairs, self.new_words = {}, {}, {}
+        self.dirty = False
+        try:
+            os.remove(LEARNED)
+        except OSError:
+            pass
+
+    def known(self, word):
+        return word in self.weights or self.new_words.get(word, 0) >= NEW_WORD_MIN_USES
+
+    def learn(self, typed):
+        word = typed.lower().strip(WORD_CHARS).replace("’", "'")
+        if not word:
+            return
+        if word in self.weights:
+            self.uses[word] = self.uses.get(word, 0) + 1
+        elif NEW_WORD.fullmatch(word):
+            self.new_words[word] = self.new_words.get(word, 0) + 1
+        else:
+            self.prev = ""
+            return
+        if self.prev and self.known(self.prev) and self.known(word):
+            following = self.pairs.setdefault(self.prev, {})
+            following[word] = following.get(word, 0) + 1
+            if len(following) > 40:  # keep each word's followers few
+                for drop in sorted(following, key=following.get)[: len(following) - 40]:
+                    del following[drop]
+        self.prev = word
+        self.dirty = True
+
+    # ------------------------------------------------------------ suggesting
+
+    def reset(self):
+        self.current, self.prev, self.sentence_start = "", "", True
+
+    def score(self, word):
+        uses = self.uses.get(word, 0) + self.new_words.get(word, 0)
+        pairs = self.pairs.get(self.prev, {}).get(word, 0)
+        return (self.weights.get(word, NEW_WORD_WEIGHT) + USE_BOOST * math.log2(1 + uses)
+                + PAIR_BOOST * math.log2(1 + pairs))
+
+    def completions(self, prefix):
+        if len(prefix) <= PREFIX_INDEX_LENGTH:
+            found = list(self.prefix_index.get(prefix, []))
+        else:
+            found = []
+            i = bisect.bisect_left(self.words, prefix)
+            while i < len(self.words) and self.words[i].startswith(prefix):
+                found.append(self.words[i])
+                i += 1
+        found += [w for w, n in self.new_words.items() if n >= NEW_WORD_MIN_USES and w.startswith(prefix)]
+        found += [w for w in self.pairs.get(self.prev, {}) if w.startswith(prefix)]
+        return found
+
+    def corrections(self, word):
+        """Dictionary words one edit away: a letter wrong, missing, extra, or
+        two swapped ("teh" -> "the")."""
+        letters = "abcdefghijklmnopqrstuvwxyz'"
+        splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+        edits = set()
+        for a, b in splits:
+            if b:
+                edits.add(a + b[1:])
+                for c in letters:
+                    edits.add(a + c + b[1:])
+            if len(b) > 1:
+                edits.add(a + b[1] + b[0] + b[2:])
+            for c in letters:
+                edits.add(a + c + b)
+        return [w for w in edits if w in self.weights]
+
+    @staticmethod
+    def styled(word, like):
+        if len(like) > 1 and like.isupper():
+            return word.upper()
+        if like[:1].isupper():
+            return word[:1].upper() + word[1:]
+        return word
+
+    def suggestions(self):
+        typed = self.current
+        prefix = typed.lower().replace("’", "'")
+        if not prefix:
+            # Between words: what usually comes next, else common words.
+            following = sorted(self.pairs.get(self.prev, {}), key=self.score, reverse=True)
+            out = []
+            for word in following + (STARTERS if self.sentence_start else FILLERS):
+                if self.sentence_start:
+                    word = word[:1].upper() + word[1:]
+                if word.lower() not in [w.lower() for w in out]:
+                    out.append(word)
+            return out[:3]
+        scores = {w: self.score(w) for w in self.completions(prefix)}
+        # Typo fixes only when what was typed isn't a word already ("hello"
+        # shouldn't offer "hell").
+        if len(prefix) >= 3 and prefix not in self.weights:
+            for word in self.corrections(prefix):
+                scores.setdefault(word, self.score(word) - CORRECTION_PENALTY)
+        ranked = sorted(scores, key=scores.get, reverse=True)
+        return [self.styled(w, typed) for w in ranked[:3]]
+
+    # ------------------------------------------------------------ keys
+
+    def key(self, ch):
+        if ch == "\b":
+            if self.current:
+                self.current = self.current[:-1]
+            else:
+                self.prev = ""  # deleted into text we never saw
+        elif ch.isalnum() or ch in WORD_CHARS:
+            self.current += ch
+        else:
+            if self.current:
+                self.learn(self.current)
+                self.sentence_start = False
+            self.current = ""
+            if ch in SENTENCE_END:
+                self.sentence_start, self.prev = True, ""
+            elif ch != " ":
+                self.prev = ""
+
+    def accept(self, index):
+        options = self.suggestions()
+        if not 0 <= index < len(options):
+            return
+        word, typed = options[index], self.current
+        if typed and word.lower().startswith(typed.lower()):
+            keys, text = 0, word[len(typed):]
+        else:
+            keys, text = len(typed), word
+        type_text(keys, text + " ")
+        self.learn(word)
+        self.current, self.sentence_start = "", False
+
+
+def type_text(backspaces, text):
+    args = ["wtype"] + ["-k", "BackSpace"] * backspaces + [text]
+    if DRY_RUN:
+        print("TYPE", json.dumps(args[1:]), flush=True)
+        return
+    try:
+        subprocess.run(args, timeout=3, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def write_suggestions(predictor):
+    tmp = SUGGESTIONS + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"word": predictor.current, "suggestions": predictor.suggestions()}, f)
+    os.replace(tmp, SUGGESTIONS)
+
+
+def open_control():
+    os.makedirs(RUNTIME, exist_ok=True)
+    try:
+        os.remove(CONTROL)
+    except OSError:
+        pass
+    os.mkfifo(CONTROL, 0o600)
+    reader = os.open(CONTROL, os.O_RDONLY | os.O_NONBLOCK)
+    # Holding a writer open keeps the reader from seeing end-of-file each
+    # time a command's writer closes.
+    keepalive = os.open(CONTROL, os.O_WRONLY | os.O_NONBLOCK)
+    return reader, keepalive
+
+
+def main():
+    args = sys.argv[1:]
+    click = args[args.index("--click") + 1] if "--click" in args else None
+    predictor = Predictor() if "--predict" in args else None
+
+    if click and subprocess.run(["pactl", "upload-sample", click, "surface-osk-click"],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+        click = None
+
+    selector = selectors.DefaultSelector()
+    selector.register(0, selectors.EVENT_READ, "keys")
+    control = None
+    if predictor:
+        control, _keepalive = open_control()
+        selector.register(control, selectors.EVENT_READ, "control")
+        write_suggestions(predictor)
+
+    decoder = codecs.getincrementaldecoder("utf-8")("replace")
+    pending = b""
+    while True:
+        for selected, _ in selector.select(timeout=1.0):
+            if selected.data == "keys":
+                chunk = os.read(0, 256)
+                if not chunk:  # wvkbd is gone
+                    if predictor:
+                        predictor.save_learned(force=True)
+                    return
+                for ch in decoder.decode(chunk):
+                    if click:
+                        subprocess.Popen(["pactl", "play-sample", "surface-osk-click"],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if predictor:
+                        predictor.key(ch)
+                if predictor:
+                    write_suggestions(predictor)
+            else:
+                try:
+                    pending += os.read(control, 256)
+                except BlockingIOError:
+                    continue
+                while b"\n" in pending:
+                    line, pending = pending.split(b"\n", 1)
+                    command = line.decode("utf-8", "replace").split()
+                    if not command:
+                        continue
+                    if command[0] == "accept" and len(command) > 1 and command[1].isdigit():
+                        predictor.accept(int(command[1]))
+                    elif command[0] == "reset":
+                        predictor.reset()
+                    elif command[0] == "forget":
+                        predictor.forget()
+                    write_suggestions(predictor)
+        # Reap finished click players, and save what was learned now and then.
+        try:
+            while os.waitpid(-1, os.WNOHANG)[0] > 0:
+                pass
+        except ChildProcessError:
+            pass
+        if predictor:
+            predictor.save_learned()
+
+
+if __name__ == "__main__":
+    main()

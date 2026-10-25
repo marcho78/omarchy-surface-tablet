@@ -15,6 +15,8 @@ Column {
   property string style: "standard"
   property string size: "medium"
   property string click: "on"
+  property string predict: "on"
+  property bool forgotten: false
 
   spacing: 14
 
@@ -35,6 +37,7 @@ Column {
       if (m[1] === "STYLE") style = value
       else if (m[1] === "SIZE") size = value
       else if (m[1] === "CLICK") click = value
+      else if (m[1] === "PREDICT") predict = value
     }
   }
 
@@ -223,6 +226,39 @@ Column {
       detail: "Silent"
       selected: page.click === "off"
       onTapped: page.set("click", "off")
+    }
+  }
+
+  // Gboard-style suggestions in the strip above the keys (surface-osk-keys).
+  Heading { text: "SUGGESTIONS" }
+
+  Row {
+    width: parent.width
+    spacing: 10
+    readonly property real cell: (width - 2 * spacing) / 3
+
+    Choice {
+      width: parent.cell
+      label: "On"
+      detail: "Words as you type"
+      selected: page.predict === "on"
+      onTapped: page.set("predict", "on")
+    }
+    Choice {
+      width: parent.cell
+      label: "Off"
+      detail: "No suggestions"
+      selected: page.predict === "off"
+      onTapped: page.set("predict", "off")
+    }
+    Choice {
+      width: parent.cell
+      label: page.forgotten ? "Forgotten" : "Forget"
+      detail: "Learned words"
+      onTapped: {
+        Quickshell.execDetached([page.home + "/.local/bin/surface-osk", "forget"])
+        page.forgotten = true
+      }
     }
   }
 

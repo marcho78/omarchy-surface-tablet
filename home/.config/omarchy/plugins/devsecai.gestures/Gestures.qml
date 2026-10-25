@@ -99,7 +99,6 @@ Item {
   // The on-screen keyboard (squeekboard or wvkbd) maps a layer while it shows.
   readonly property var oskLayers: ["osk", "squeekboard", "wvkbd"]
   property bool oskUp: false
-  property int oskHeight: screenH > screenW ? 400 : 300
 
   function isOsk(namespace) {
     return oskLayers.indexOf(String(namespace)) >= 0
@@ -112,33 +111,15 @@ Item {
     onExited: function(exitCode) { if (exitCode === 0) root.oskUp = true }
   }
 
-  // The keyboard reserves its height at the bottom of the screen; read it so
-  // the dismiss tab sits right on top of it.
-  Process {
-    id: oskMeasure
-    command: ["bash", "-c", "hyprctl monitors -j | jq '(first(.[] | select(.focused)) // .[0]).reserved[3]'"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var h = parseInt(String(text || "").trim(), 10)
-        if (h > 40) root.oskHeight = h
-      }
-    }
-  }
-
-  Timer {
-    id: oskMeasureSoon
-    interval: 150
-    onTriggered: oskMeasure.running = true
-  }
-
   function toggleKeyboard() {
     run(home + "/.local/bin/surface-osk toggle")
   }
 
   // Apps shrink to stay above the keyboard, and grow back when it closes.
+  // The word being typed starts over either way.
   onOskUpChanged: {
-    if (oskUp) oskMeasureSoon.restart()
     if (tablet) refit.restart()
+    run(home + "/.local/bin/surface-osk reset")
   }
 
   Timer {
@@ -153,10 +134,21 @@ Item {
       var name = event ? String(event.name) : ""
       if (name === "openlayer" && root.isOsk(event.data)) root.oskUp = true
       else if (name === "closelayer" && root.isOsk(event.data)) root.oskUp = false
-      // Opening or switching to an app is the end of using the dock.
-      else if (root.dockUp && (name === "activewindowv2" || name === "openwindow")) hideDelay.restart()
+      else if (name === "openwindow" && root.dockUp) hideDelay.restart()
+      // activewindowv2 also comes whenever the active window's title changes
+      // (a terminal's spinner, a browser tab loading), so only a different
+      // address means the user switched windows.
+      else if (name === "activewindowv2" && String(event.data) !== root.activeWindow) {
+        root.activeWindow = String(event.data)
+        // Opening or switching to an app is the end of using the dock.
+        if (root.dockUp) hideDelay.restart()
+        // Typing in another window: the word being typed there starts over.
+        if (root.oskUp) root.run(root.home + "/.local/bin/surface-osk reset")
+      }
     }
   }
+
+  property string activeWindow: ""
 
   Timer {
     id: hideDelay
@@ -319,46 +311,113 @@ Item {
     }
   }
 
-  // ------------------------------------------------------------ keyboard dismiss
+  // ------------------------------------------------------------ suggestion strip
 
-  // A tab sitting on the keyboard's top-right corner: tap it, or swipe it
-  // down, to put the keyboard away.
+  // Gboard's top row, above the on-screen keyboard while it shows: three word
+  // suggestions, the best in the middle, and the button that puts the keyboard
+  // away. Tap a suggestion to type it (surface-osk-keys does the typing). The
+  // strip reserves its height like the keyboard does, so Hyprland stacks it on
+  // top of the keyboard and apps sit above both. Coloured like wvkbd.
+  property var suggestions: []
+
+  FileView {
+    path: Quickshell.env("XDG_RUNTIME_DIR") + "/surface-osk/suggestions.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        root.suggestions = JSON.parse(text()).suggestions || []
+      } catch (e) {}
+    }
+  }
+
   PanelWindow {
     visible: root.oskUp && !!root.screen
     screen: root.screen
-    anchors { right: true; bottom: true }
-    margins { right: 14; bottom: root.oskHeight + 8 }
-    implicitWidth: 72
-    implicitHeight: 44
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
+    anchors { left: true; right: true; bottom: true }
+    implicitHeight: 48
+    color: "#0f0f0f"
+    exclusionMode: ExclusionMode.Normal
+    exclusiveZone: implicitHeight
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "devsecai-osk-dismiss"
+    WlrLayershell.namespace: "devsecai-osk-strip"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    Rectangle {
+    Row {
+      id: stripRow
       anchors.fill: parent
-      radius: height / 2
-      color: Color.background
-      border.width: 1
-      border.color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.18)
-      scale: dismiss.pressed ? 0.92 : 1
-      Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+      readonly property real cell: (width - hideKeyboard.width) / 3
 
-      Text {
-        anchors.centerIn: parent
-        text: "󰌐"
-        color: Color.foreground
-        font.family: Style.font.family
-        font.pixelSize: 22
+      // Left the second best, the middle the best, right the third.
+      Repeater {
+        model: [1, 0, 2]
+
+        Item {
+          id: slot
+          required property int modelData
+          readonly property string word: root.suggestions.length > modelData ? root.suggestions[modelData] : ""
+          width: stripRow.cell
+          height: stripRow.height
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: 5
+            radius: 12
+            color: "#2d2d2d"
+            visible: press.pressed && slot.word !== ""
+          }
+
+          Text {
+            anchors.centerIn: parent
+            width: parent.width - 20
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            text: slot.word
+            color: "white"
+            opacity: slot.modelData === 0 ? 1 : 0.85
+            font.family: Style.font.family
+            font.pixelSize: 17
+            font.bold: slot.modelData === 0
+          }
+
+          Rectangle {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 1
+            height: parent.height * 0.45
+            color: "#3a3a3a"
+          }
+
+          MouseArea {
+            id: press
+            anchors.fill: parent
+            enabled: slot.word !== ""
+            onClicked: root.run(root.home + "/.local/bin/surface-osk accept " + slot.modelData)
+          }
+        }
       }
-    }
 
-    MouseArea {
-      id: dismiss
-      anchors.fill: parent
-      preventStealing: true
-      onReleased: root.toggleKeyboard()
+      Item {
+        id: hideKeyboard
+        width: 68
+        height: stripRow.height
+
+        Text {
+          anchors.centerIn: parent
+          text: "󰌐"
+          color: "white"
+          opacity: hidePress.pressed ? 0.45 : 0.85
+          font.family: Style.font.family
+          font.pixelSize: 22
+        }
+
+        MouseArea {
+          id: hidePress
+          anchors.fill: parent
+          onClicked: root.toggleKeyboard()
+        }
+      }
     }
   }
 

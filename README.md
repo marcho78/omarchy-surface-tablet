@@ -44,7 +44,12 @@ git clone <this repo> ~/surface-tablet
   (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it. Key click:
   the Surface Pro 4 has no vibration motor, so each key press plays a soft click
   (`~/.local/share/surface-osk/click.wav`, from the sound server's sample cache);
-  on by default, switchable on the Keyboard page.
+  on by default, switchable on the Keyboard page. Word suggestions (Gboard-style
+  strip above the keys): `~/.local/bin/surface-osk-keys` reads the keys wvkbd reports,
+  completes the word being typed from fcitx5's English dictionary, offers typo fixes
+  and next words, learns your words (plain-letter new words only after 3 uses;
+  `~/.local/share/surface-osk/learned.json`, mode 600), and types a tapped suggestion
+  with wtype. Suggestions on/off and Forget learned words on the Keyboard page.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`.
 - `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and

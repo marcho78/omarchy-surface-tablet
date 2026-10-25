@@ -9,7 +9,12 @@
 #   surface-osk set style standard|full|simple
 #   surface-osk set size small|medium|large
 #   surface-osk set click on|off
-#                        change the wvkbd layout and key click; saved in $SETTINGS
+#   surface-osk set predict on|off
+#                        change the wvkbd layout, key click and word suggestions;
+#                        saved in $SETTINGS
+#   surface-osk accept N | reset | forget
+#                        the suggestion strip's commands for surface-osk-keys: type
+#                        suggestion N, start the word over, forget learned words
 # Besides English, wvkbd shows your preferred language when it has a layout
 # for it: the first one found in Hyprland's kb_layout, then $LANG.
 #
@@ -57,6 +62,7 @@ SETTINGS=$HOME/.config/surface-osk/settings
 STYLE=standard
 SIZE=medium
 CLICK=on
+PREDICT=on
 [[ -f $SETTINGS ]] && source "$SETTINGS"
 
 # The Surface Pro 4 has no vibration motor, so key presses get a soft click
@@ -104,12 +110,15 @@ wvkbd_args() {
     "-L $height -H $((height * 4 / 3))"
 }
 
+# Key clicks and word suggestions both come from surface-osk-keys, fed by
+# wvkbd -o, which prints each key the moment it is pressed.
 start_wvkbd() {
-  if [[ $CLICK == on && -f $CLICK_SOUND ]]; then
-    # wvkbd -o prints each key the moment it is pressed; `surface-osk clicks`
-    # plays a click for each.
+  local keys=()
+  [[ $CLICK == on && -f $CLICK_SOUND ]] && keys+=(--click "$CLICK_SOUND")
+  [[ $PREDICT == on ]] && keys+=(--predict)
+  if ((${#keys[@]})); then
     # shellcheck disable=SC2046,SC2016
-    setsid -f bash -c 'wvkbd-mobintl -o "$@" | "$0" clicks' "$HOME/.local/bin/surface-osk" \
+    setsid -f bash -c 'wvkbd-mobintl -o "$@" | "$0" '"${keys[*]@Q}" "$HOME/.local/bin/surface-osk-keys" \
       "$@" $(wvkbd_args) >/dev/null 2>&1
   else
     # shellcheck disable=SC2046
@@ -117,28 +126,29 @@ start_wvkbd() {
   fi
 }
 
-# Key clicks, fed by wvkbd -o (see start_wvkbd): one character per key, no
-# newlines. The sound is loaded into the sound server once, so each click is
-# just a play request (about 10 ms) rather than a player starting up.
-if [[ $1 == clicks ]]; then
-  if pactl upload-sample "$CLICK_SOUND" surface-osk-click >/dev/null 2>&1; then
-    click() { pactl play-sample surface-osk-click >/dev/null 2>&1 & }
-  else
-    click() { pw-play "$CLICK_SOUND" >/dev/null 2>&1 & }
-  fi
-  while IFS= read -r -n1 -d '' _; do click; done
-  exit
-fi
+# The suggestion strip's commands, for surface-osk-keys (see its header).
+CONTROL=${XDG_RUNTIME_DIR:-/tmp}/surface-osk/control
+case $1 in
+  accept | reset | forget)
+    [[ $1 == forget ]] && rm -f "$HOME/.local/share/surface-osk/learned.json"
+    # Only when surface-osk-keys is reading, so the write can't hang.
+    if [[ -p $CONTROL ]] && pgrep -f surface-osk-keys >/dev/null; then
+      timeout 1 bash -c 'printf "%s\n" "$1" >"$2"' _ "$*" "$CONTROL"
+    fi
+    exit
+    ;;
+esac
 
 if [[ $1 == set ]]; then
   case $2 in
     style) [[ $3 =~ ^(standard|full|simple)$ ]] && STYLE=$3 ;;
     size) [[ $3 =~ ^(small|medium|large)$ ]] && SIZE=$3 ;;
     click) [[ $3 =~ ^(on|off)$ ]] && CLICK=$3 ;;
-    *) echo "Usage: surface-osk set style|size|click VALUE" >&2; exit 1 ;;
+    predict) [[ $3 =~ ^(on|off)$ ]] && PREDICT=$3 ;;
+    *) echo "Usage: surface-osk set style|size|click|predict VALUE" >&2; exit 1 ;;
   esac
   mkdir -p "$(dirname "$SETTINGS")"
-  printf 'STYLE=%s\nSIZE=%s\nCLICK=%s\n' "$STYLE" "$SIZE" "$CLICK" >"$SETTINGS"
+  printf 'STYLE=%s\nSIZE=%s\nCLICK=%s\nPREDICT=%s\n' "$STYLE" "$SIZE" "$CLICK" "$PREDICT" >"$SETTINGS"
   if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
     # Restart with the new layout, open again if it was open.
     if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi

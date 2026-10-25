@@ -169,11 +169,11 @@ function M.after()
   })
   hl.layer_rule({ match = { namespace = "^devsecai-(notification-center|app-drawer|app-switcher)$" }, blur = true, ignore_alpha = 0.05 })
 
-  -- The keyboard and its hide tab slide up from the bottom edge together.
+  -- The keyboard and its suggestion strip slide up from the bottom edge together.
   -- The panels animate themselves: a full-screen sheet slid in by Hyprland
   -- comes down from the top edge, over the bar, as if dragging it along.
   -- The swipe strips are invisible.
-  hl.layer_rule({ match = { namespace = "^(wvkbd|osk|devsecai-osk-dismiss)$" }, animation = "slide" })
+  hl.layer_rule({ match = { namespace = "^(wvkbd|osk|devsecai-osk-strip)$" }, animation = "slide" })
   hl.layer_rule({ match = { namespace = "^devsecai-(control-center|notification-center|app-drawer|app-switcher|gesture-.*)$" }, no_anim = true, animation = "none" })
 
   hl.config({
