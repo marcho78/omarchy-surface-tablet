@@ -1,0 +1,81 @@
+--- plugins/dock/DockWindow.qml	2026-10-24 17:44:53.938655746 -0700
++++ plugins/dock/DockWindow.qml	2026-10-24 17:44:54.006891045 -0700
+@@ -37,11 +37,15 @@
+     }
+     return mode
+   }
+-  readonly property bool shown: !!dock && dock.isFloating(workspaceId) && fullscreenMode < 2
++  // Surface tablet patch: the dock follows its auto-hide setting everywhere.
++  // Shown (always), it reserves its edge so maximized windows stop short of
++  // it. Auto-hidden, it waits off screen until the pointer or a finger
++  // reaches its edge. A fullscreen window hides it the auto-hide way, so it
++  // can still be called up over the window.
++  readonly property bool shown: !!dock && dock.isFloating(workspaceId)
+   // With auto-hide on, the dock waits off screen until the pointer reaches its
+-  // edge, and stays while the pointer, a menu, or a drag still needs it. A
+-  // maximized window hides the dock the same way, so it can still be called up.
+-  readonly property bool autohide: !!dock && (dock.autohide || fullscreenMode === 1)
++  // edge, and stays while the pointer, a menu, or a drag still needs it.
++  readonly property bool autohide: !!dock && (dock.autohide || fullscreenMode >= 2)
+   property bool revealed: false
+   readonly property bool menuOpen: menuItem !== null || settingsMenu
+   readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0)
+@@ -192,12 +196,13 @@
+   visible: !remapGuard.remapping
+   color: "transparent"
+   WlrLayershell.namespace: "omarchy-dock"
+-  WlrLayershell.layer: WlrLayer.Top
++  // Over a fullscreen window only the overlay layer is drawn.
++  WlrLayershell.layer: window.fullscreenMode >= 2 ? WlrLayer.Overlay : WlrLayer.Top
+   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+-  // Kept clear of the bar's reserved edge, without reserving one of its own:
+-  // floating windows go where they are put.
++  // Kept clear of the bar's reserved edge. An always-shown dock reserves its
++  // own edge too, so maximized windows end where it begins.
+   exclusionMode: ExclusionMode.Normal
+-  exclusiveZone: 0
++  exclusiveZone: window.shown && !window.autohide ? window.gap + window.slotSize : 0
+ 
+   anchors {
+     top: window.position !== "bottom"
+@@ -227,11 +232,39 @@
+     }
+   }
+ 
++  // A finger can't hover: a touch or swipe on the edge brings the dock up,
++  // and it tucks away again a few seconds later.
++  function revealByTouch() {
++    window.revealed = true
++    touchHideTimer.restart()
++  }
++
++  Timer {
++    id: touchHideTimer
++    interval: 5000
++    onTriggered: {
++      if (window.menuOpen || window.dragging) restart()
++      else window.revealed = false
++    }
++  }
++
+   // The strip along the screen edge that brings an auto-hidden dock back.
+   Item {
+     id: edgeTrigger
+ 
+-    readonly property int depth: window.gap + Style.spacing.xxs
++    // Deep enough for a fingertip as well as the pointer.
++    readonly property int depth: Math.max(window.gap + Style.spacing.xxs, 12)
++
++    TapHandler {
++      acceptedDevices: PointerDevice.TouchScreen
++      onPressedChanged: if (pressed) window.revealByTouch()
++    }
++
++    DragHandler {
++      target: null
++      acceptedDevices: PointerDevice.TouchScreen
++      onActiveChanged: if (active) window.revealByTouch()
++    }
+ 
+     x: window.position === "left" ? 0 : window.position === "right" ? window.width - depth : body.x
+     y: window.position === "top" ? 0 : window.position === "bottom" ? window.height - depth : body.y

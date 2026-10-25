@@ -35,6 +35,22 @@ Item {
 
   property real brightness: 0
 
+  // The dock's auto-hide setting, as Omarchy keeps it in shell.json.
+  property bool dockAutohide: false
+
+  FileView {
+    path: root.home + "/.config/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var config = JSON.parse(text())
+        root.dockAutohide = !!(config.dock && config.dock.autohide === true)
+      } catch (e) {}
+    }
+  }
+
   readonly property var battery: UPower.displayDevice
   readonly property int batteryPercent: battery && battery.isPresent ? Math.round(battery.percentage * 100) : -1
   readonly property bool charging: !!battery && (battery.state === UPowerDeviceState.Charging
@@ -88,16 +104,18 @@ Item {
 
   Process {
     id: ssidProc
-    command: ["bash", "-c", "nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | sed -n 's/^yes://p' | head -1"]
+    command: ["bash", "-c", "nmcli -t -f NAME,TYPE connection show --active 2>/dev/null | sed -n 's/:802-11-wireless$//p' | head -1"]
     stdout: StdioCollector {
       onStreamFinished: root.ssid = String(text || "").trim()
     }
   }
 
+  // Read on opening (the first tick), then every few seconds while open.
   Timer {
     interval: 3000
     repeat: true
     running: root.opened
+    triggeredOnStart: true
     onTriggered: ssidProc.running = true
   }
 
@@ -310,14 +328,28 @@ Item {
               onTapped: root.runAndClose("omarchy capture screenshot")
             }
 
-          }
+            // Always show, or auto-hide (then a swipe up from the bottom edge
+            // brings it back). Apps re-fit around a dock that stays.
+            Tile {
+              width: parent.cell
+              icon: "󰍜"
+              title: "Dock"
+              subtitle: root.dockAutohide ? "Auto-hide" : "Always show"
+              active: !root.dockAutohide
+              onTapped: {
+                root.dockAutohide = !root.dockAutohide
+                root.run("omarchy-dock autohide " + (root.dockAutohide ? "on" : "off")
+                         + "; sleep 0.8; " + root.home + "/.local/bin/tablet-mode refit")
+              }
+            }
 
-          Tile {
-            width: parent.width
-            icon: "󰌢"
-            title: "Desktop"
-            subtitle: "Exit tablet"
-            onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
+            Tile {
+              width: parent.cell
+              icon: "󰌢"
+              title: "Desktop"
+              subtitle: "Exit tablet"
+              onTapped: root.runAndClose(root.home + "/.local/bin/tablet-mode off")
+            }
           }
 
           PillSlider {

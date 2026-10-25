@@ -24,7 +24,11 @@ git clone <this repo> ~/surface-tablet
 - Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
   applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook
   after every Omarchy update. A patch that no longer fits a new version is skipped,
-  not forced. Currently: slide a finger (or scroll) through the theme/background picker.
+  not forced. Currently:
+  - `image-picker-slide.patch`: slide a finger (or scroll) through the theme/background picker.
+  - `dock-autohide-touch.patch`: the dock follows its Always show / Auto-hide setting in
+    every case. Shown, it reserves its edge (maximized apps stop above it); auto-hidden,
+    the bottom edge brings it back by pointer or finger, also over fullscreen apps.
 
 **Home** (symlinked from `home/`)
 - `~/.local/bin/surface-osk`: Type Cover watcher. Cover off → tablet mode on and
@@ -38,7 +42,7 @@ git clone <this repo> ~/surface-tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
-  - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard,
+  - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
     volume, brightness, ...)
   - `devsecai.gestures`: edge swipes (bottom: short swipe dock / long swipe app drawer, bottom-right: keyboard,
     top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
@@ -66,9 +70,8 @@ git clone <this repo> ~/surface-tablet
 
 ## Pending on this machine
 Built but needing sudo to install:
-- `sudo pacman -U packages/wvkbd/wvkbd-0.20-1.1-x86_64.pkg.tar.zst` (build it first with
-  `makepkg` in `packages/wvkbd` on a fresh clone): held keys repeat.
-- `./install.sh --patches`: theme picker slides by touch.
+- `./install.sh --patches`: theme picker slides by touch; dock follows its auto-hide setting
+  and comes back by touch and over fullscreen apps.
 - `sudo pacman -S squeekboard`: keyboard pops up on text fields (conflicts with fcitx5,
   which currently owns the input method).
 

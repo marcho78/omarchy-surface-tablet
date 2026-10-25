@@ -28,7 +28,7 @@ current_text_size() {
 # Apps fill the area between the bar and the dock, keeping their titlebar.
 # tablet.lua reads the area from $STATE/geometry for windows opened later.
 GAP=10
-DOCK_ROOM=18 # the dock auto-hides; leave room for the swipe edge
+DOCK_ROOM=18 # room for the swipe edge; a shown dock reserves its own space
 TITLEBAR=52 # drawn above the window's own top edge
 
 write_app_area() {
@@ -119,24 +119,18 @@ set_bar_layout() {
   edit_shell_json --argjson layout "$1" '.bar.layout = $layout'
 }
 
-# The dock hides in tablet mode and comes up with a swipe from the bottom edge
+# The dock keeps its own setting (Always show / Auto-hide, `omarchy dock
+# autohide`); an auto-hidden dock comes up with a swipe from the bottom edge
 # (see the devsecai.gestures shell plugin).
 use_tablet_bar() {
   jq '.bar.layout' "$SHELL_JSON" >"$SAVED_BAR" || return
-  jq '.dock.autohide // false' "$SHELL_JSON" >"$STATE/desktop-dock-autohide"
   set_bar_layout "$TABLET_BAR"
-  edit_shell_json '.dock.autohide = true'
   # A taller bar (this is scaled up again by the text size).
   printf '\n# tablet-mode begin\n[bar]\nsize-horizontal = 34\n# tablet-mode end\n' >>"$SHELL_TOML"
 }
 
 use_desktop_bar() {
   [[ -s $SAVED_BAR ]] && set_bar_layout "$(cat "$SAVED_BAR")" && rm -f "$SAVED_BAR"
-  if [[ $(cat "$STATE/desktop-dock-autohide" 2>/dev/null) == true ]]; then
-    edit_shell_json '.dock.autohide = true'
-  else
-    edit_shell_json 'del(.dock.autohide)'
-  fi
   [[ -f $SHELL_TOML ]] && sed -i '/^# tablet-mode begin$/,/^# tablet-mode end$/d' "$SHELL_TOML"
 }
 
