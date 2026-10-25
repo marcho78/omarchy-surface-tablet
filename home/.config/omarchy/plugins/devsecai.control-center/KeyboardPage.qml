@@ -3,8 +3,8 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 
-// On-screen keyboard settings: layout style and height. Your preferred
-// language (from the system settings) is added by surface-osk itself.
+// On-screen keyboard settings: layout style, height and key click. Your
+// preferred language (from the system settings) is added by surface-osk.
 // Saved and applied by `surface-osk set`, which restarts the keyboard.
 Column {
   id: page
@@ -14,6 +14,7 @@ Column {
   readonly property string home: Quickshell.env("HOME")
   property string style: "standard"
   property string size: "medium"
+  property string click: "on"
 
   spacing: 14
 
@@ -33,6 +34,7 @@ Column {
       var value = m[2].replace(/^'(.*)'$/, "$1")
       if (m[1] === "STYLE") style = value
       else if (m[1] === "SIZE") size = value
+      else if (m[1] === "CLICK") click = value
     }
   }
 
@@ -196,6 +198,31 @@ Column {
       label: "Large"
       selected: page.size === "large"
       onTapped: page.set("size", "large")
+    }
+  }
+
+  // There is no vibration motor in a Surface Pro 4, so a soft click sound
+  // stands in for haptic feedback.
+  Heading { text: "KEY CLICK" }
+
+  Row {
+    width: parent.width
+    spacing: 10
+    readonly property real cell: (width - spacing) / 2
+
+    Choice {
+      width: parent.cell
+      label: "On"
+      detail: "Soft click per key"
+      selected: page.click === "on"
+      onTapped: page.set("click", "on")
+    }
+    Choice {
+      width: parent.cell
+      label: "Off"
+      detail: "Silent"
+      selected: page.click === "off"
+      onTapped: page.set("click", "off")
     }
   }
 

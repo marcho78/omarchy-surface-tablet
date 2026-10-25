@@ -34,10 +34,13 @@ git clone <this repo> ~/surface-tablet
 **Home** (symlinked from `home/`)
 - `~/.local/bin/surface-osk`: Type Cover watcher. Cover off → tablet mode on and
   the keyboard pops up on text fields; cover on → desktop mode. `surface-osk toggle`
-  shows/hides the keyboard; `surface-osk set style|size ...` changes its
+  shows/hides the keyboard; `surface-osk set style|size|click ...` changes its
   layout (saved in `~/.config/surface-osk/settings`, also set from the Control
   Center's Keyboard page). Besides English it shows your system language
-  (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it.
+  (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it. Key click:
+  the Surface Pro 4 has no vibration motor, so each key press plays a soft click
+  (`~/.local/share/surface-osk/click.wav`, from the sound server's sample cache);
+  on by default, switchable on the Keyboard page.
 - `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`.
 - `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and

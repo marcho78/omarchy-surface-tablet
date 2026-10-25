@@ -8,7 +8,8 @@
 #   surface-osk show|hide
 #   surface-osk set style standard|full|simple
 #   surface-osk set size small|medium|large
-#                        change the wvkbd layout; saved in $SETTINGS
+#   surface-osk set click on|off
+#                        change the wvkbd layout and key click; saved in $SETTINGS
 # Besides English, wvkbd shows your preferred language when it has a layout
 # for it: the first one found in Hyprland's kb_layout, then $LANG.
 #
@@ -55,7 +56,15 @@ osk_auto() {
 SETTINGS=$HOME/.config/surface-osk/settings
 STYLE=standard
 SIZE=medium
+CLICK=on
 [[ -f $SETTINGS ]] && source "$SETTINGS"
+
+# The Surface Pro 4 has no vibration motor, so key presses get a soft click
+# sound instead. Made with:
+#   ffmpeg -f lavfi -i "anoisesrc=d=0.028:c=white:a=1:r=48000:seed=7" \
+#     -af "bandpass=f=2800:width_type=h:w=2400,afade=t=out:st=0:d=0.028:curve=exp,volume=0.35" \
+#     -ac 1 -ar 48000 -c:a pcm_s16le click.wav
+CLICK_SOUND=$HOME/.local/share/surface-osk/click.wav
 
 # The wvkbd layout for the preferred language, if any (English needs none).
 preferred_language() {
@@ -96,18 +105,40 @@ wvkbd_args() {
 }
 
 start_wvkbd() {
-  # shellcheck disable=SC2046
-  setsid -f wvkbd-mobintl "$@" $(wvkbd_args) >/dev/null 2>&1
+  if [[ $CLICK == on && -f $CLICK_SOUND ]]; then
+    # wvkbd -o prints each key the moment it is pressed; `surface-osk clicks`
+    # plays a click for each.
+    # shellcheck disable=SC2046,SC2016
+    setsid -f bash -c 'wvkbd-mobintl -o "$@" | "$0" clicks' "$HOME/.local/bin/surface-osk" \
+      "$@" $(wvkbd_args) >/dev/null 2>&1
+  else
+    # shellcheck disable=SC2046
+    setsid -f wvkbd-mobintl "$@" $(wvkbd_args) >/dev/null 2>&1
+  fi
 }
+
+# Key clicks, fed by wvkbd -o (see start_wvkbd): one character per key, no
+# newlines. The sound is loaded into the sound server once, so each click is
+# just a play request (about 10 ms) rather than a player starting up.
+if [[ $1 == clicks ]]; then
+  if pactl upload-sample "$CLICK_SOUND" surface-osk-click >/dev/null 2>&1; then
+    click() { pactl play-sample surface-osk-click >/dev/null 2>&1 & }
+  else
+    click() { pw-play "$CLICK_SOUND" >/dev/null 2>&1 & }
+  fi
+  while IFS= read -r -n1 -d '' _; do click; done
+  exit
+fi
 
 if [[ $1 == set ]]; then
   case $2 in
     style) [[ $3 =~ ^(standard|full|simple)$ ]] && STYLE=$3 ;;
     size) [[ $3 =~ ^(small|medium|large)$ ]] && SIZE=$3 ;;
-    *) echo "Usage: surface-osk set style|size VALUE" >&2; exit 1 ;;
+    click) [[ $3 =~ ^(on|off)$ ]] && CLICK=$3 ;;
+    *) echo "Usage: surface-osk set style|size|click VALUE" >&2; exit 1 ;;
   esac
   mkdir -p "$(dirname "$SETTINGS")"
-  printf 'STYLE=%s\nSIZE=%s\n' "$STYLE" "$SIZE" >"$SETTINGS"
+  printf 'STYLE=%s\nSIZE=%s\nCLICK=%s\n' "$STYLE" "$SIZE" "$CLICK" >"$SETTINGS"
   if [[ $OSK == wvkbd-mobintl ]] && pgrep -x wvkbd-mobintl >/dev/null; then
     # Restart with the new layout, open again if it was open.
     if hyprctl layers -j | grep -q '"namespace": "wvkbd"'; then shown=1; else shown=""; fi
