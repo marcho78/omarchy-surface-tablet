@@ -6,10 +6,12 @@ import Quickshell.Wayland
 import qs.Commons
 
 // Edge swipes for tablet mode, iPad style:
-//   bottom edge, short swipe up      -> reveal the dock
-//   bottom edge, long swipe up       -> app drawer (over whatever is open)
-//   bottom edge, swipe up and hold   -> app switcher (every open window)
+//   bottom edge, swipe up a little   -> reveal the dock
+//   bottom edge, swipe up partway    -> app switcher (every open window)
+//   bottom edge, swipe up far        -> app drawer (over whatever is open)
 //   bottom-right corner, swipe up    -> on-screen keyboard
+// Which of the three a bottom swipe does goes by distance alone, shown while
+// swiping by a small list with the current choice lit.
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
 // The dock reveals when the pointer reaches the screen edge, so revealing it
@@ -30,9 +32,20 @@ Item {
 
   // How far a finger must travel to count, in logical px.
   readonly property int swipeMin: 24
-  readonly property real homeFraction: 0.3
-  // How far up a swipe must be before holding it still opens the switcher.
-  readonly property real holdFraction: 0.12
+  // Bottom swipe zones, as shares of the screen height: up to dockFraction
+  // the dock, up to drawerFraction the app switcher, beyond it the app
+  // drawer. (Timing a pause to tell them apart proved unreliable: a finger
+  // meaning to pause was often still moving when it lifted.)
+  readonly property real dockFraction: 0.15
+  readonly property real drawerFraction: 0.45
+
+  // What letting go of the current bottom swipe would do.
+  readonly property string swipeTarget: {
+    if (!swipe.pressed || swipe.forKeyboard || swipe.up < swipeMin) return ""
+    if (swipe.up < screenH * dockFraction) return "dock"
+    if (swipe.up < screenH * drawerFraction) return "switcher"
+    return "drawer"
+  }
 
   FileView {
     path: root.home + "/.local/state/tablet-mode/state"
@@ -183,47 +196,112 @@ Item {
 
       property real startX: 0
       property real startY: 0
-      // Where the finger last moved, and whether holding it still there
-      // already opened the app switcher.
-      property real stillX: 0
-      property real stillY: 0
-      property bool held: false
+      // How far up the finger is from where it started.
+      property real up: 0
+      readonly property bool forKeyboard: startX > width * 0.82
 
       onPressed: function(mouse) {
-        startX = stillX = mouse.x
-        startY = stillY = mouse.y
-        held = false
-        holdStill.stop()
+        startX = mouse.x
+        startY = mouse.y
+        up = 0
       }
 
-      // Swiped well up off the edge and then held still: the app switcher,
-      // as on iOS and Android. Small wobbles of a resting finger don't count
-      // as moving.
       onPositionChanged: function(mouse) {
-        if (held || startX > width * 0.82) return
-        if (Math.abs(mouse.x - stillX) < 8 && Math.abs(mouse.y - stillY) < 8) return
-        stillX = mouse.x
-        stillY = mouse.y
-        if (startY - mouse.y > root.screenH * root.holdFraction) holdStill.restart()
-        else holdStill.stop()
+        up = startY - mouse.y
       }
 
       onReleased: function(mouse) {
-        holdStill.stop()
-        if (held) return
-        var up = startY - mouse.y
+        up = startY - mouse.y
         if (up < root.swipeMin) return
-        if (startX > width * 0.82) root.toggleKeyboard()
-        else if (up > root.screenH * root.homeFraction) root.run("omarchy-shell shell toggle devsecai.app-drawer")
+        if (forKeyboard) {
+          root.toggleKeyboard()
+          return
+        }
+        var target = root.swipeTarget
+        console.log("GESTDEBUG release up", Math.round(up), "->", target)
+        if (target === "drawer") root.run("omarchy-shell shell summon devsecai.app-drawer")
+        else if (target === "switcher") root.run("omarchy-shell shell summon devsecai.app-switcher")
         else root.showDock()
       }
+    }
+  }
 
-      Timer {
-        id: holdStill
-        interval: 280
-        onTriggered: {
-          swipe.held = true
-          root.run("omarchy-shell shell summon devsecai.app-switcher")
+  // ------------------------------------------------------------ swipe hint
+
+  // While swiping up from the bottom edge: what letting go will do, as a
+  // short list (far to near, top to bottom) with the current choice lit.
+  // Always mapped, so it shows the instant a swipe starts; it never takes
+  // touches.
+  PanelWindow {
+    visible: root.tablet && !!root.screen
+    screen: root.screen
+    anchors { bottom: true }
+    margins { bottom: Math.round(root.screenH * 0.42) }
+    implicitWidth: 268
+    implicitHeight: hintColumn.implicitHeight + 20
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    mask: Region {}
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "devsecai-gesture-hint"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    Rectangle {
+      anchors.fill: parent
+      radius: 24
+      color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.94)
+      border.width: 1
+      border.color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.14)
+      opacity: root.swipeTarget !== "" ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: 90 } }
+
+      Column {
+        id: hintColumn
+        anchors.centerIn: parent
+        spacing: 4
+
+        Repeater {
+          model: [
+            { key: "drawer", icon: "󰀻", label: "Apps" },
+            { key: "switcher", icon: "󰕰", label: "App switcher" },
+            { key: "dock", icon: "󰍜", label: "Dock" }
+          ]
+
+          Rectangle {
+            required property var modelData
+            readonly property bool current: root.swipeTarget === modelData.key
+            width: 248
+            height: 46
+            radius: 17
+            color: current ? Color.accent : "transparent"
+            Behavior on color { ColorAnimation { duration: 90 } }
+
+            Row {
+              anchors.left: parent.left
+              anchors.leftMargin: 18
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 14
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.icon
+                color: parent.parent.current ? Color.background : Color.foreground
+                opacity: parent.parent.current ? 1 : 0.6
+                font.family: Style.font.family
+                font.pixelSize: 20
+              }
+
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: modelData.label
+                color: parent.parent.current ? Color.background : Color.foreground
+                opacity: parent.parent.current ? 1 : 0.6
+                font.family: Style.font.family
+                font.pixelSize: 15
+                font.bold: parent.parent.current
+              }
+            }
+          }
         }
       }
     }

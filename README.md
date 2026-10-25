@@ -50,8 +50,8 @@ git clone <this repo> ~/surface-tablet
 - Shell plugins in `~/.config/omarchy/plugins/`:
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
     volume, brightness, ...)
-  - `devsecai.gestures`: edge swipes (bottom: short swipe dock / long swipe app drawer / swipe and hold app switcher,
-    bottom-right: keyboard,
+  - `devsecai.gestures`: edge swipes (bottom: by distance, shown live while swiping:
+    a little = dock, partway = app switcher, far = app drawer; bottom-right: keyboard,
     top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
@@ -61,7 +61,7 @@ git clone <this repo> ~/surface-tablet
     Android's drawer / iPadOS App Library: search pill (tap for the keyboard), suggestions
     row of recently opened apps, every app A to Z as large icons; opens over what you are
     doing, swipe down to close. Uses Omarchy's app library for apps, icons and launching
-  - `devsecai.app-switcher`: app switcher (swipe up from the bottom edge and hold), as on
+  - `devsecai.app-switcher`: app switcher (swipe up partway from the bottom edge), as on
     iOS/Android: every open window (minimized ones too) as a live card, most recent
     first; tap a card to switch to it (`tablet-open-app --address`), slide it up to
     close the window
