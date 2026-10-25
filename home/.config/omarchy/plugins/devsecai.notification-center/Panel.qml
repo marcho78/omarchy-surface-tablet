@@ -276,11 +276,12 @@ Item {
     shown: root.opened
     WlrLayershell.namespace: "devsecai-notification-center"
 
-    // Tap beside the notifications, or swipe up, to close.
+    // Tap beside the notifications, or swipe up, to close. As light as the
+    // Control Center's, so the frosted blur behind shows through.
     Rectangle {
       anchors.fill: parent
       color: "black"
-      opacity: root.opened ? 0.45 : 0
+      opacity: root.opened ? 0.28 : 0
       Behavior on opacity { NumberAnimation { duration: 200 } }
 
       SwipeUpArea {
