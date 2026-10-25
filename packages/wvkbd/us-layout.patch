@@ -22,7 +22,7 @@
  };
  
 --- c/layout.mobintl.h	2026-10-24 19:22:49.531590298 -0700
-+++ d/layout.mobintl.h	2026-10-24 21:02:13.553377298 -0700
++++ d/layout.mobintl.h	2026-10-24 21:05:46.071978013 -0700
 @@ -64,6 +64,10 @@
  	ComposeCyrChe,
  	ComposeCyrG,
@@ -55,7 +55,7 @@
  };
  
  /* key layouts
-@@ -1714,3 +1723,226 @@
+@@ -1714,3 +1723,227 @@
    {"", "", 8, Pad},
    {"", "", 0.0, Last},
  };
@@ -67,7 +67,8 @@
 + * Esc, Tab, Delete, Home, End, Print and the arrows live too), ABC comes back.
 + * The bottom row has Ctrl, the Omarchy key (Super, labelled with the Omarchy
 + * logo, U+E900 in Omarchy's font) and Alt together, as on a PC, so any Omarchy
-+ * shortcut can be typed: modifiers latch until the next key, in any mix and
++ * shortcut can be typed; both sides of the space bar are 3.75 units, so it
++ * sits in the middle. Modifiers latch until the next key, in any mix and
 + * across pages (Omarchy, Alt, space opens the app launcher; Omarchy, ?123, 3
 + * goes to workspace 3). usnum adds a number row on top. */
 +static struct key keys_us[] = {
@@ -108,13 +109,13 @@
 +  {"", "", 0.0, EndRow},
 +
 +  {"?123", "?123", 1.25, Layout, 0, &layouts[UsSym], .scheme = 1},
-+  {"Ctrl", "Ctrl", 1.0, Mod, Ctrl, .scheme = 1},
++  {"Ctrl", "Ctrl", 0.75, Mod, Ctrl, .scheme = 1},
 +  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
-+  {"Alt", "Alt", 1.0, Mod, Alt, .scheme = 1},
-+  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"Alt", "Alt", 0.75, Mod, Alt, .scheme = 1},
 +  {"", "Tab", 2.5, Code, KEY_SPACE},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
 +  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
-+  {"⏎", "⏎", 1.25, Code, KEY_ENTER, .scheme = 1},
++  {"⏎", "⏎", 1.75, Code, KEY_ENTER, .scheme = 1},
 +
 +  /* end of layout */
 +  {"", "", 0.0, Last},
@@ -170,13 +171,13 @@
 +  {"", "", 0.0, EndRow},
 +
 +  {"?123", "?123", 1.25, Layout, 0, &layouts[UsSym], .scheme = 1},
-+  {"Ctrl", "Ctrl", 1.0, Mod, Ctrl, .scheme = 1},
++  {"Ctrl", "Ctrl", 0.75, Mod, Ctrl, .scheme = 1},
 +  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
-+  {"Alt", "Alt", 1.0, Mod, Alt, .scheme = 1},
-+  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"Alt", "Alt", 0.75, Mod, Alt, .scheme = 1},
 +  {"", "Tab", 2.5, Code, KEY_SPACE},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
 +  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
-+  {"⏎", "⏎", 1.25, Code, KEY_ENTER, .scheme = 1},
++  {"⏎", "⏎", 1.75, Code, KEY_ENTER, .scheme = 1},
 +
 +  /* end of layout */
 +  {"", "", 0.0, Last},
@@ -220,13 +221,13 @@
 +  {"", "", 0.0, EndRow},
 +
 +  {"ABC", "ABC", 1.25, BackLayer, .scheme = 1},
-+  {"Ctrl", "Ctrl", 1.0, Mod, Ctrl, .scheme = 1},
++  {"Ctrl", "Ctrl", 0.75, Mod, Ctrl, .scheme = 1},
 +  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
-+  {"Alt", "Alt", 1.0, Mod, Alt, .scheme = 1},
-+  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"Alt", "Alt", 0.75, Mod, Alt, .scheme = 1},
 +  {"", "Tab", 2.5, Code, KEY_SPACE},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
 +  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
-+  {"⏎", "⏎", 1.25, Code, KEY_ENTER, .scheme = 1},
++  {"⏎", "⏎", 1.75, Code, KEY_ENTER, .scheme = 1},
 +
 +  /* end of layout */
 +  {"", "", 0.0, Last},
@@ -271,13 +272,13 @@
 +  {"", "", 0.0, EndRow},
 +
 +  {"ABC", "ABC", 1.25, BackLayer, .scheme = 1},
-+  {"Ctrl", "Ctrl", 1.0, Mod, Ctrl, .scheme = 1},
++  {"Ctrl", "Ctrl", 0.75, Mod, Ctrl, .scheme = 1},
 +  {"\ue900", "\ue900", 1.0, Mod, Super, .scheme = 2},
-+  {"Alt", "Alt", 1.0, Mod, Alt, .scheme = 1},
-+  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
++  {"Alt", "Alt", 0.75, Mod, Alt, .scheme = 1},
 +  {"", "Tab", 2.5, Code, KEY_SPACE},
++  {",", ",", 1.0, Code, KEY_COMMA, &layouts[ComposeMath]},
 +  {".", ".", 1.0, Code, KEY_DOT, &layouts[ComposePunctuation]},
-+  {"⏎", "⏎", 1.25, Code, KEY_ENTER, .scheme = 1},
++  {"⏎", "⏎", 1.75, Code, KEY_ENTER, .scheme = 1},
 +
 +  /* end of layout */
 +  {"", "", 0.0, Last},
