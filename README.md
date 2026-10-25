@@ -96,5 +96,6 @@ Built but needing sudo to install:
 - `sudo pacman -S squeekboard`: keyboard pops up on text fields (conflicts with fcitx5,
   which currently owns the input method).
 
-`git log` has the reasoning behind each change.
+`git log` has the reasoning behind each change. `TODO.md` lists what is planned,
+starting with making this work on any x86 tablet, not only the Surface Pro 4.
 
