@@ -93,7 +93,9 @@ git clone <this repo> ~/surface-tablet
   Stage Control's, O-Spotlight's and Uber TV's bar entries over and their settings back,
   and reloads the shell's plugins after each switch (they only see bar settings change
   then).
-- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
+- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen; the titlebar's
+  square button and a double tap give real full screen, not Omarchy's maximize, which tablet mode
+  fought: it snapped back, then left a maximized window with no titlebar), tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
 - Shell plugins in `~/.config/omarchy/plugins/`:
@@ -114,7 +116,8 @@ git clone <this repo> ~/surface-tablet
     replaced an earlier bottom-swipe menu chosen by distance, which was hard to aim. While
     Omarchy's screensaver shows in tablet mode, a tap anywhere closes it (SIGHUP to
     `omarchy-screensaver`, which exits cleanly): it only closes on a key press otherwise. Also
-    the keyboard's suggestion strip (Esc, suggestions, mic, hide)
+    the keyboard's suggestion strip (Esc, suggestions, mic, hide). While an app is full screen,
+    a pill at the top centre takes you out: pull down or tap it
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
     (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to

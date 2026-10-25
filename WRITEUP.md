@@ -130,10 +130,12 @@ plain V4L2 webcams).
 
 ## 9. Open items
 
-- Window controls in tablet mode (next): a setting for title bars or an
-  iPad-style handle; the title bar's maximize button fights tablet mode's
-  fitting (first press snaps back, second leaves a maximized window with no
-  title bar and no way out without a keyboard).
+- Window controls in tablet mode (next): an iPad-style "···" handle and a
+  setting for title bars or the handle. Title bars (hyprbars) are built for
+  a mouse; on the Type Cover's touchpad, taps that move a little are dropped
+  by libinput, so buttons feel hit-or-miss (pressing the pad down always
+  clicks). Done so far: the square button now gives real full screen, left
+  by a pill at the top centre.
 
 - Touch in desktop mode: bar taps still turn into drags there (the lock is
   tablet-only), and the edge swipes are tablet-only.

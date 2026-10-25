@@ -123,6 +123,8 @@ Item {
     target: Hyprland
     function onRawEvent(event) {
       var name = event ? String(event.name) : ""
+      if (["fullscreen", "workspacev2", "activewindowv2", "closewindow", "movewindowv2"].indexOf(name) >= 0)
+        fullscreenCheck.restart()
       if (name === "openlayer" && root.isOsk(event.data)) root.oskUp = true
       else if (name === "closelayer" && root.isOsk(event.data)) root.oskUp = false
       else if (name === "openwindow" && String(event.data).split(",")[2] === "org.omarchy.screensaver")
@@ -804,5 +806,75 @@ Item {
   PullDown {
     right: false
     command: "omarchy-shell shell toggle devsecai.notification-center"
+  }
+
+  // ------------------------------------------------------------ full screen
+
+  // A full-screen app has no titlebar; in tablet mode there is no keyboard to
+  // leave full screen with. While one fills the screen, the top centre (between
+  // the two pull-downs) brings it back: pull down, or tap the pill.
+  property bool fullscreen: false
+
+  Timer {
+    id: fullscreenCheck
+    interval: 120
+    onTriggered: fullscreenProc.running = true
+  }
+
+  Process {
+    id: fullscreenProc
+    running: true
+    command: ["bash", "-c", "hyprctl activeworkspace -j | jq -r .hasfullscreen"]
+    stdout: StdioCollector {
+      onStreamFinished: root.fullscreen = String(text || "").trim() === "true"
+    }
+  }
+
+  function leaveFullscreen() {
+    run("hyprctl dispatch 'hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"unset\" })'")
+    fullscreenCheck.restart()
+  }
+
+  PanelWindow {
+    visible: root.tablet && root.fullscreen && !!root.screen
+    screen: root.screen
+    anchors { top: true }
+    implicitWidth: Math.round(root.screenW * (1 - 2 * root.pullZone))
+    implicitHeight: 32
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "devsecai-gesture-fullscreen"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    // The pill: what to pull, over whatever the app shows there.
+    Rectangle {
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      anchors.topMargin: 8
+      width: 64
+      height: 6
+      radius: 3
+      color: "white"
+      opacity: fullscreenPull.pressed ? 0.95 : 0.6
+      border.width: 1
+      border.color: Qt.rgba(0, 0, 0, 0.35)
+      Behavior on opacity { NumberAnimation { duration: 120 } }
+    }
+
+    MouseArea {
+      id: fullscreenPull
+      anchors.fill: parent
+      preventStealing: true
+      property real startY: 0
+      property bool fired: false
+      onPressed: function(mouse) { startY = mouse.y; fired = false }
+      onPositionChanged: function(mouse) {
+        if (fired || mouse.y - startY < root.swipeMin) return
+        fired = true
+        root.leaveFullscreen()
+      }
+      onClicked: if (!fired) root.leaveFullscreen()
+    }
   }
 }

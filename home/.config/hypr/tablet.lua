@@ -20,6 +20,10 @@ end
 
 -- Titlebar buttons are added by Omarchy with a fixed size, so the add call is
 -- wrapped to make them finger-sized. Runs before Omarchy's defaults load.
+-- The square button maximizes, which tablet mode undoes (apps already fill the
+-- screen) or, pressed again, leaves a maximized window with no titlebar and no
+-- way back without a keyboard; here it is real full screen instead, left by
+-- pulling down at the top centre (see the devsecai.gestures shell plugin).
 local function patch_titlebar_buttons(size)
   local function patch(bars)
     if not bars then
@@ -29,6 +33,9 @@ local function patch_titlebar_buttons(size)
     local add = bars.__tablet_add
     bars.add_button = size and function(button)
       button.size = size
+      if type(button.action) == "string" then
+        button.action = button.action:gsub('mode = "maximized"', 'mode = "fullscreen"')
+      end
       return add(button)
     end or add
   end
@@ -194,6 +201,8 @@ function M.after()
           bar_padding = 18,
           bar_button_padding = 14,
           button_rounding = 18,
+          -- Double-tapping the titlebar: full screen too, not maximize.
+          on_double_click = [[hyprctl dispatch 'hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:%WINDOW%" })']],
         },
       },
     })
