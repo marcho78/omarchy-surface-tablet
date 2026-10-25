@@ -161,6 +161,10 @@ Item {
     // One layer below the on-screen keyboard (and the edge-swipe strips), so
     // the keyboard always draws over the drawer, even when it was already up.
     shownLayer: WlrLayer.Top
+    // No exclusive keyboard grab in tablet mode: with one, Hyprland sends every
+    // touch to the drawer, those on the keyboard too, so a key opened the app
+    // under it. On demand, it still takes the keyboard when it opens.
+    shownKeyboardFocus: root.tablet ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
     WlrLayershell.namespace: "devsecai-app-drawer"
 
     // Tap outside the grid to close (the bar's strip included).

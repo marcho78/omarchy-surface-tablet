@@ -35,6 +35,10 @@ git clone <this repo> ~/surface-tablet
     the bottom edge brings it back by pointer or finger, also over fullscreen apps.
   - `dock-reveal.patch`: an `omarchy-shell omarchy.dock reveal` command that brings an
     auto-hidden dock up for a few seconds; tablet mode's short bottom swipe uses it.
+  - `bar-touch-lock.patch`: the top bar is locked in tablet mode. Omarchy turns a press
+    that moves a few pixels into a drag that rearranges the bar's icons (or moves the bar
+    to another edge); a finger always moves a little, so taps were lost and icons could
+    end up under the pull-down strips, out of reach.
 
 **Home** (symlinked from `home/`)
 - `~/.local/bin/surface-osk`: Type Cover watcher (layout styles: `standard` = Gboard-like
@@ -52,7 +56,10 @@ git clone <this repo> ~/surface-tablet
   and next words, learns your words (plain-letter new words only after 3 uses;
   `~/.local/share/surface-osk/learned.json`, mode 600), and types a tapped suggestion
   with wtype. Suggestions on/off and Forget learned words on the Keyboard page.
-- `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`.
+- `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`. Swaps in the tablet bar
+  (clock, workspaces with O-Spotlight's search icon beside them, status pill), carries
+  Stage Control's and O-Spotlight's bar entries over and their settings back, and reloads
+  the shell's plugins after each switch (they only see bar settings change then).
 - `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen), tablet
   motion (sliding workspaces, springy app open, keyboard slides up), and
   workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
@@ -60,8 +67,9 @@ git clone <this repo> ~/surface-tablet
   - `devsecai.control-center`: Control Center panel (Wi-Fi, Bluetooth, keyboard, Dock always-show/auto-hide,
     volume, brightness, ...)
   - `devsecai.gestures`: edge swipes (bottom: by distance, shown live while swiping:
-    a little = dock (only while the dock is set to auto-hide), partway = app switcher,
-    far = app drawer; bottom-right: keyboard,
+    a little = dock (only while the dock is set to auto-hide), partway (to 45% of the
+    screen) = Stage Control, further (to 62%) = Search (O-Spotlight), far = app drawer;
+    bottom-right: keyboard,
     top-right pull-down: Control Center, top-left pull-down: Notification Center) and the keyboard dismiss tab
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
@@ -70,13 +78,31 @@ git clone <this repo> ~/surface-tablet
   - `devsecai.app-drawer`: app drawer (long swipe up from the bottom edge), laid out like
     Android's drawer / iPadOS App Library: search pill (tap for the keyboard), suggestions
     row of recently opened apps, every app A to Z as large icons; opens over what you are
-    doing, swipe down to close. Uses Omarchy's app library for apps, icons and launching
-  - `devsecai.app-switcher`: app switcher (swipe up partway from the bottom edge), as on
-    iOS/Android: every open window (minimized ones too) as a live card, most recent
-    first; tap a card to switch to it (`tablet-open-app --address`), slide it up to
-    close the window
+    doing, swipe down to close. Uses Omarchy's app library for apps, icons and launching.
+    Searches apps only (O-Spotlight searches everything). In tablet mode it takes the
+    keyboard on demand, not exclusively: an exclusive grab made Hyprland send every touch
+    to the drawer, so a tap on a key opened the app under it
+  - `devsecai.app-switcher`: app switcher, as on iOS/Android: every open window
+    (minimized ones too) as a live card, most recent first; tap a card to switch to it
+    (`tablet-open-app --address`), slide it up to close the window. No longer on the
+    bottom swipe (Stage Control replaced it); kept for now
   - `devsecai.tablet-clock`, `devsecai.tablet-status`: tablet bar widgets
   - `devsecai.osk`, `devsecai.tablet`: desktop bar buttons (keyboard, tablet mode)
+
+**Third-party plugins** (marcho78's, installed with `omarchy plugin add`; not copied here)
+- `marcho78.stage-control`: Mission Control-style overview of every window and desktop.
+  Bottom swipe partway in tablet mode, `Super+D` docked (`stageKey` in shell.json; Omarchy
+  already uses Super+A and Super+Tab). Touch mode in tablet mode: the desktops bar stays
+  open, window titles and close buttons always show (bigger), long-press a desktop to
+  rename it.
+- `marcho78.o-spotlight`: Spotlight-style search for apps, Omarchy actions and settings,
+  files and maths, with 12 styles. `Alt+Space` and the bar icon docked; in tablet mode the
+  search icon in the middle of the bar, or the bottom swipe to Search. Touch mode: the
+  on-screen keyboard opens and closes with it, the search fits above the keyboard (and
+  follows it when you put it away), no hover-only controls, long-press the magnifying glass
+  in its search field for settings, keyboard-shortcut hints hidden, keyboard focus on demand.
+- The touch-mode changes are local edits in those plugins' own git repos; they follow
+  tablet mode through `~/.local/state/tablet-mode/state`.
 
 **Patched** (a few lines added to files that hold your own settings)
 - `~/.config/hypr/hyprland.lua`: `tablet.before()` / `tablet.after()` around Omarchy's defaults
@@ -91,8 +117,8 @@ git clone <this repo> ~/surface-tablet
 
 ## Pending on this machine
 Built but needing sudo to install:
-- `./install.sh --patches`: theme picker slides by touch; dock follows its auto-hide setting
-  and comes back by touch and over fullscreen apps.
+- `./install.sh --patches`: installs `bar-touch-lock.patch` (top bar locked in tablet mode),
+  then `omarchy restart shell`.
 - `sudo pacman -S squeekboard`: keyboard pops up on text fields (conflicts with fcitx5,
   which currently owns the input method).
 

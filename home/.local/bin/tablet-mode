@@ -94,8 +94,9 @@ restore_workspace_layouts() {
   mv "$SAVED_LAYOUTS"/*.lua "$LAYOUTS"/ 2>/dev/null
 }
 
-# Tablet mode has its own bar: clock, workspaces, Home and a status pill that
-# opens the Control Center. The desktop layout is set aside and put back by off.
+# Tablet mode has its own bar: clock, workspaces with O-Spotlight's search
+# beside them, and a status pill that opens the Control Center. The desktop
+# layout is set aside and put back by off.
 SHELL_JSON=$HOME/.config/omarchy/shell.json
 SHELL_TOML=$HOME/.config/omarchy/shell.toml
 SAVED_BAR=$STATE/desktop-bar-layout.json
@@ -119,18 +120,48 @@ set_bar_layout() {
   edit_shell_json --argjson layout "$1" '.bar.layout = $layout'
 }
 
+# Plugins are handed bar settings only when the shell's plugin list changes,
+# not when shell.json does, so after a bar swap they're reloaded to pick up
+# theirs (O-Spotlight's and Stage Control's icons differ between the bars).
+reload_plugins() {
+  omarchy-shell -q shell rescanPlugins >/dev/null 2>&1
+}
+
+# Stage Control and O-Spotlight only run while their entries are in the bar,
+# and keep their settings on those entries.
+PLUGIN_ENTRIES='[.bar.layout[] | arrays | .[]
+  | select(.id == "marcho78.stage-control" or .id == "marcho78.o-spotlight")]'
+
 # The dock keeps its own setting (Always show / Auto-hide, `omarchy dock
 # autohide`); an auto-hidden dock comes up with a swipe from the bottom edge
 # (see the devsecai.gestures shell plugin).
 use_tablet_bar() {
   jq '.bar.layout' "$SHELL_JSON" >"$SAVED_BAR" || return
-  set_bar_layout "$TABLET_BAR"
+  # Carry those entries over: O-Spotlight's search icon in the middle, by the
+  # workspaces, where a tap reaches it (the bar's sides are pull-down strips);
+  # Stage Control's icon hidden.
+  local entries
+  entries=$(jq -c "$PLUGIN_ENTRIES" "$SHELL_JSON")
+  set_bar_layout "$(jq -c --argjson e "${entries:-[]}" '
+    .centerEnd += [$e[] | select(.id == "marcho78.o-spotlight") | . + {barIcon: true}]
+    | .right += [$e[] | select(.id == "marcho78.stage-control") | . + {barIcon: false}]' <<<"$TABLET_BAR")"
   # A taller bar (this is scaled up again by the text size).
   printf '\n# tablet-mode begin\n[bar]\nsize-horizontal = 34\n# tablet-mode end\n' >>"$SHELL_TOML"
 }
 
 use_desktop_bar() {
-  [[ -s $SAVED_BAR ]] && set_bar_layout "$(cat "$SAVED_BAR")" && rm -f "$SAVED_BAR"
+  if [[ -s $SAVED_BAR ]]; then
+    # Settings changed in tablet mode (a Spotlight style, Stage Control's
+    # desktops) were saved on the tablet entries: take them back into the
+    # desktop layout, each entry keeping the desktop's own barIcon.
+    local entries
+    entries=$(jq -c "$PLUGIN_ENTRIES" "$SHELL_JSON")
+    set_bar_layout "$(jq -c --argjson e "${entries:-[]}" 'map_values(if type == "array" then map(
+      if type == "object" then
+        . as $desk | ($e | map(select(.id == $desk.id)) | first) as $tab
+        | if $tab then ($tab | del(.barIcon)) + ($desk | if has("barIcon") then {barIcon} else {} end) else . end
+      else . end) else . end)' "$SAVED_BAR")" && rm -f "$SAVED_BAR"
+  fi
   [[ -f $SHELL_TOML ]] && sed -i '/^# tablet-mode begin$/,/^# tablet-mode end$/d' "$SHELL_TOML"
 }
 
@@ -146,6 +177,7 @@ on() {
   sleep 1.5 # let the taller tablet bar take its space
   write_app_area
   fill_open_windows
+  reload_plugins
   omarchy-shell -q omarchy.dock refresh
   notify "󰓶" "Tablet mode"
 }
@@ -162,6 +194,8 @@ off() {
   omarchy-shell shell hide devsecai.control-center >/dev/null 2>&1
   restore_workspace_layouts
   hyprctl reload >/dev/null
+  sleep 1 # let the shell read the desktop bar back
+  reload_plugins
   omarchy-shell -q omarchy.dock refresh
   notify "󰌢" "Desktop mode"
 }

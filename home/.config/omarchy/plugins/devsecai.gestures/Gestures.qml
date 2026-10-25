@@ -7,10 +7,12 @@ import qs.Commons
 
 // Edge swipes for tablet mode, iPad style:
 //   bottom edge, swipe up a little   -> reveal the dock
-//   bottom edge, swipe up partway    -> app switcher (every open window)
+//   bottom edge, swipe up partway    -> Stage Control (marcho78.stage-control:
+//                                       every window, desktops to drag them to)
+//   bottom edge, swipe up further    -> Search (marcho78.o-spotlight)
 //   bottom edge, swipe up far        -> app drawer (over whatever is open)
 //   bottom-right corner, swipe up    -> on-screen keyboard
-// Which of the three a bottom swipe does goes by distance alone, shown while
+// Which of these a bottom swipe does goes by distance alone, shown while
 // swiping by a small list with the current choice lit.
 //   top edge, right side, pull down  -> Control Center
 //   top edge, left side, pull down   -> Notification Center
@@ -34,17 +36,20 @@ Item {
   // How far a finger must travel to count, in logical px.
   readonly property int swipeMin: 24
   // Bottom swipe zones, as shares of the screen height: up to dockFraction
-  // the dock, up to drawerFraction the app switcher, beyond it the app
-  // drawer. (Timing a pause to tell them apart proved unreliable: a finger
-  // meaning to pause was often still moving when it lifted.)
+  // the dock, up to switcherFraction Stage Control, up to searchFraction
+  // Search, beyond it the app drawer. (Timing a pause to tell them apart
+  // proved unreliable: a finger meaning to pause was often still moving when
+  // it lifted.)
   readonly property real dockFraction: 0.15
-  readonly property real drawerFraction: 0.45
+  readonly property real switcherFraction: 0.45
+  readonly property real searchFraction: 0.62
 
   // What letting go of the current bottom swipe would do.
   readonly property string swipeTarget: {
     if (!swipe.pressed || swipe.forKeyboard || swipe.up < swipeMin) return ""
     if (dockAutohide && swipe.up < screenH * dockFraction) return "dock"
-    if (swipe.up < screenH * drawerFraction) return "switcher"
+    if (swipe.up < screenH * switcherFraction) return "switcher"
+    if (swipe.up < screenH * searchFraction) return "search"
     return "drawer"
   }
 
@@ -225,7 +230,8 @@ Item {
         var target = root.swipeTarget
         console.log("GESTDEBUG release up", Math.round(up), "->", target)
         if (target === "drawer") root.run("omarchy-shell shell summon devsecai.app-drawer")
-        else if (target === "switcher") root.run("omarchy-shell shell summon devsecai.app-switcher")
+        else if (target === "switcher") root.run("omarchy-shell stage-control toggle")
+        else if (target === "search") root.run("omarchy-shell shell summon marcho78.o-spotlight '{\"buttons\":true}'")
         else root.showDock()
       }
     }
@@ -268,7 +274,8 @@ Item {
         Repeater {
           model: [
             { key: "drawer", icon: "󰀻", label: "Apps" },
-            { key: "switcher", icon: "󰕰", label: "App switcher" }
+            { key: "search", icon: "󰍉", label: "Search" },
+            { key: "switcher", icon: "󰕰", label: "Stage Control" }
           ].concat(root.dockAutohide ? [{ key: "dock", icon: "󰍜", label: "Dock" }] : [])
 
           Rectangle {
