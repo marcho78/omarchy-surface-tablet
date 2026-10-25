@@ -1,16 +1,17 @@
 --- plugins/dock/DockWindow.qml	2026-10-24 17:44:53.938655746 -0700
-+++ plugins/dock/DockWindow.qml	2026-10-24 17:44:54.006891045 -0700
-@@ -37,11 +37,15 @@
++++ plugins/dock/DockWindow.qml	2026-10-24 17:52:23.601017127 -0700
+@@ -37,11 +37,16 @@
      }
      return mode
    }
 -  readonly property bool shown: !!dock && dock.isFloating(workspaceId) && fullscreenMode < 2
-+  // Surface tablet patch: the dock follows its auto-hide setting everywhere.
-+  // Shown (always), it reserves its edge so maximized windows stop short of
-+  // it. Auto-hidden, it waits off screen until the pointer or a finger
-+  // reaches its edge. A fullscreen window hides it the auto-hide way, so it
-+  // can still be called up over the window.
-+  readonly property bool shown: !!dock && dock.isFloating(workspaceId)
++  // Surface tablet patch: the dock is on every workspace, tiling or
++  // floating, and follows its auto-hide setting everywhere. Shown (always),
++  // it reserves its edge so tiled and maximized windows stop short of it.
++  // Auto-hidden, it waits off screen until the pointer or a finger reaches
++  // its edge. A fullscreen window hides it the auto-hide way, so it can
++  // still be called up over the window.
++  readonly property bool shown: !!dock
    // With auto-hide on, the dock waits off screen until the pointer reaches its
 -  // edge, and stays while the pointer, a menu, or a drag still needs it. A
 -  // maximized window hides the dock the same way, so it can still be called up.
@@ -20,7 +21,7 @@
    property bool revealed: false
    readonly property bool menuOpen: menuItem !== null || settingsMenu
    readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0)
-@@ -192,12 +196,13 @@
+@@ -192,12 +197,13 @@
    visible: !remapGuard.remapping
    color: "transparent"
    WlrLayershell.namespace: "omarchy-dock"
@@ -31,14 +32,14 @@
 -  // Kept clear of the bar's reserved edge, without reserving one of its own:
 -  // floating windows go where they are put.
 +  // Kept clear of the bar's reserved edge. An always-shown dock reserves its
-+  // own edge too, so maximized windows end where it begins.
++  // own edge too, so tiled and maximized windows end where it begins.
    exclusionMode: ExclusionMode.Normal
 -  exclusiveZone: 0
 +  exclusiveZone: window.shown && !window.autohide ? window.gap + window.slotSize : 0
  
    anchors {
      top: window.position !== "bottom"
-@@ -227,11 +232,39 @@
+@@ -227,11 +233,39 @@
      }
    }
  

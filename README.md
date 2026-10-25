@@ -26,8 +26,9 @@ git clone <this repo> ~/surface-tablet
   after every Omarchy update. A patch that no longer fits a new version is skipped,
   not forced. Currently:
   - `image-picker-slide.patch`: slide a finger (or scroll) through the theme/background picker.
-  - `dock-autohide-touch.patch`: the dock follows its Always show / Auto-hide setting in
-    every case. Shown, it reserves its edge (maximized apps stop above it); auto-hidden,
+  - `dock-autohide-touch.patch`: the dock shows on every workspace (Omarchy limits it to
+    floating ones) and follows its Always show / Auto-hide setting in
+    every case. Shown, it reserves its edge (tiled and maximized apps stop above it); auto-hidden,
     the bottom edge brings it back by pointer or finger, also over fullscreen apps.
 
 **Home** (symlinked from `home/`)
