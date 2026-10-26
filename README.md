@@ -1,5 +1,9 @@
 # Surface Pro 4 tablet mode for Omarchy
 
+![Device: Surface Pro 4](https://img.shields.io/badge/device-Surface%20Pro%204-0078D4)
+![OS: Omarchy](https://img.shields.io/badge/Omarchy-Arch%20%2B%20Hyprland-1793D1)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Turns a Surface Pro 4 running [Omarchy](https://omarchy.org) (Arch Linux,
 Hyprland, Limine) into a touch-first tablet: working touch, an on-screen
 keyboard with suggestions and voice typing, edge gestures, a Control Center, and
@@ -12,9 +16,11 @@ What's left: **[TODO.md](TODO.md)**.
 ## Install
 
 ```bash
-git clone <this repo> ~/surface-tablet
+git clone https://github.com/marcho78/omarchy-surface-tablet.git ~/surface-tablet
 ~/surface-tablet/install.sh        # everything; asks for sudo; then reboot
 ```
+
+Keep the folder where you cloned it: your home files become links into it.
 
 | Option | Installs | Needs |
 |---|---|---|
@@ -129,3 +135,15 @@ tablet mode is in [WRITEUP.md](WRITEUP.md#10-plugins-used).
 - **squeekboard** (keyboard that pops up on text fields) is in the installer but
   not installed here: it conflicts with fcitx5, which owns the input method.
 - **Service plugins** (gestures) only reload with `omarchy restart shell`.
+
+## Credits
+
+- [linux-surface](https://github.com/linux-surface/linux-surface): the kernel and `iptsd` that make the Surface's hardware work
+- [wvkbd](https://git.sr.ht/~proycon/wvkbd): the on-screen keyboard patched here
+- [Vosk](https://alphacephei.com/vosk/) and [nerd-dictation](https://github.com/ideasman42/nerd-dictation): offline voice typing
+- [Omarchy](https://omarchy.org): the desktop this builds on
+
+## License
+
+[MIT](LICENSE). Patches to other projects keep their project's license: the
+wvkbd patches are GPL-3.0, the kernel camera patch GPL-2.0-only.

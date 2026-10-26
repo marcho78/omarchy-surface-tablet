@@ -162,7 +162,7 @@ Three separate problems, found in this order.
   - A sweep of seven levels showed the noise now followed the volume, as a working mic's should.
 - **Fix.** 35% (+30 dB, no boost), saved by PipeWire. A WirePlumber rule (`home/.config/wireplumber/`) also makes 35% the starting level if the saved setting is ever lost.
 - **Test.**
-  - You dictated a full sentence correctly at 35%.
+  - A full dictated sentence came out correct at 35%.
   - We removed the saved setting and restarted WirePlumber: the mic came back at 35%.
 
 ### 8.3 One mic of the pair is inverted
@@ -181,13 +181,13 @@ Three separate problems, found in this order.
 ## 9. Mistakes worth knowing about
 
 - **A black screen.**
-  - An interrupted command of mine had already stopped the Omarchy shell (wallpaper, bar, gestures) and never restarted it. On an empty desktop with no shell, the screen is black.
-  - My checks said the shell was running because `pgrep -f omarchy-shell` matched my own command line.
+  - An interrupted command had already stopped the Omarchy shell (wallpaper, bar, gestures) and never restarted it. On an empty desktop with no shell, the screen is black.
+  - The checks said the shell was running because `pgrep -f omarchy-shell` matched the checking command itself.
   - Now: check with `quickshell list` and `omarchy-shell shell ping`, and run shell restarts detached so an interrupt can't cut them in half.
 - **A wrong first plan for the mic.** "Just lower the volume" assumed the mic was too loud, when it was broken. The level sweep showed it.
 - **A test that changed the chip.** Writing the "after-reset" settings into the working chip didn't reproduce the fault. It also cleared two bits the chip sets itself, which a reboot restored.
-- **A claim I hadn't checked.** I wrote into these docs that two plugins' commits
-  weren't on GitHub, without checking GitHub. Checked afterwards with
+- **A claim made before checking.** These docs said two plugins' commits weren't
+  on GitHub before GitHub was checked. Checked afterwards with
   `git ls-remote`: it was true, but it was stated before it was known.
 - **Recorded speech tests.** They depended on reading a sentence at the right moment, with a TV on. Dictating for real was the test that counted.
 
