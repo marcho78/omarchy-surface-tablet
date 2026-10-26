@@ -102,9 +102,17 @@ The infrared camera (OV7251) isn't supported by libcamera.
 | `packages/wvkbd/` | The on-screen keyboard: the AUR package plus four patches |
 | `tools/taplog.py` | Logs touch events, for debugging |
 
-Also used, from marcho78's own plugin repos (not copied here, with local
-touch-mode changes): Stage Control (window overview), O-Spotlight (search), Uber
-TV (media center).
+## Plugins used
+
+Three Omarchy shell plugins of my own, each in its own repo (not copied here).
+Install with `omarchy plugin add <repo URL>`. What we changed in them for
+tablet mode is in [WRITEUP.md](WRITEUP.md#10-plugins-used).
+
+| Plugin | What it does | Repo |
+|---|---|---|
+| **Stage Control** | Overview of every window and desktop, with live previews | [marcho78/omarchy-stage-control](https://github.com/marcho78/omarchy-stage-control) |
+| **O-Spotlight** | Spotlight-style search: apps, Omarchy actions and settings, files, maths; 12 themes | [marcho78/o-spotlight](https://github.com/marcho78/o-spotlight) |
+| **Uber TV** | Media center: YouTube, IPTV with a guide, on-demand videos, apps | [marcho78/uber-tv](https://github.com/marcho78/uber-tv) |
 
 ## Known issues
 

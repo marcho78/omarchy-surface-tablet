@@ -183,7 +183,47 @@ Three separate problems, found in this order.
 
 ---
 
-## 10. Everything installed
+## 10. Plugins used
+
+Three of my own Omarchy shell plugins, each in its own repo. Tablet mode needed
+touch versions of them: no hover, bigger targets, and the on-screen keyboard.
+They read `~/.local/state/tablet-mode/state`, so they switch along with tablet
+mode. Tablet mode also carries their bar entries and settings across, and
+reloads them after each switch (section 2).
+
+### Stage Control: [marcho78/omarchy-stage-control](https://github.com/marcho78/omarchy-stage-control)
+- **What it is.** An overview of every window and desktop, with live previews.
+- **How it opens.** Super+D docked; from the radial menu in tablet mode.
+- **What we changed.**
+  - A touch mode: the desktops bar stays open, window titles and close buttons always show and are bigger, and you long-press a desktop to rename it.
+  - Hidden (minimized) apps show in touch mode; tap one to bring it back (section 7).
+
+### O-Spotlight: [marcho78/o-spotlight](https://github.com/marcho78/o-spotlight)
+- **What it is.** Spotlight-style search for apps, Omarchy actions and settings, files and maths, in 12 themes.
+- **How it opens.** Alt+Space docked; the search icon in the middle of the tablet bar, or Search in the radial menu.
+- **What we changed.** A touch mode:
+  - the on-screen keyboard opens and closes with it
+  - the search fits above the keyboard in every theme
+  - no hover-only controls or shortcut hints
+  - long-press the magnifying glass for settings
+
+### Uber TV: [marcho78/uber-tv](https://github.com/marcho78/uber-tv)
+- **What it is.** A media center: YouTube, IPTV with a guide, on-demand videos and apps.
+- **How it opens.** Super+Alt+T or its bar button docked; Media Center in the Control Center in tablet mode.
+- **What we changed.**
+  - The bar button is a play icon, so it doesn't look like the display and laptop icons.
+  - It hides when its bar entry has `"barIcon": false`, which the tablet bar sets.
+
+### State of those changes
+| Repo | Committed but not pushed | Not committed |
+|---|---|---|
+| Stage Control | touch mode (1 commit) | hidden apps in touch mode (`Overview.qml`) |
+| O-Spotlight | touch mode (1 commit) | — |
+| Uber TV | — | play icon and `barIcon` (`BarWidget.qml`) |
+
+---
+
+## 11. Everything installed
 
 | What | From | Why |
 |---|---|---|

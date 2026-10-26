@@ -10,8 +10,9 @@
 - [ ] **Mic after a long sleep.** `surface-audio-wake.service` is in; leave the
   Surface suspended for hours, then check `journalctl -t surface-audio-wake` and
   dictate. If writing the settings back isn't enough: suspend-then-hibernate.
-- [ ] **marcho78's plugins.** Stage Control (hidden apps in touch mode) and Uber
-  TV (play icon) have local, uncommitted changes in their own repos.
+- [ ] **Plugin repos** (see WRITEUP section 10): Stage Control and O-Spotlight
+  each have a touch-mode commit not pushed; Stage Control (hidden apps) and Uber
+  TV (play icon) have uncommitted edits.
 - [ ] **Unused:** `devsecai.app-switcher` (Stage Control replaced it); remove or
   keep.
 - [ ] **Front camera** tint (no tuning file).
