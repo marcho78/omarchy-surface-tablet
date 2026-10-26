@@ -1,247 +1,200 @@
-# Surface Pro 4 tablet setup: write-up
+# How we did it
 
-What has been built for the Surface Pro 4 running Omarchy (Arch, Hyprland 0.56
-with Lua config, the Quickshell-based omarchy-shell, Limine), why, and what is
-still open. The README lists every file; `git log` has the detail of each
-change. This is the story in one place.
+Every problem below follows the same four steps: **Problem → Cause → Fix →
+Test.** The cause is what the evidence showed, not a guess; where something is
+still unproven, it says so. File names point into this repo; `git log` has the
+detail of each change.
+
+Machine: Surface Pro 4 (i5-6300U, 4 GB RAM) on Omarchy: Arch Linux, Hyprland
+0.56 with Lua config, the Quickshell-based omarchy-shell, Limine.
+
+---
 
 ## 1. Touch
 
-- **Kernel and touch daemon.** The stock kernel has no touch on this model:
-  the linux-surface kernel and `iptsd` provide it. Limine's `BOOT_ORDER` puts
-  the surface kernel first, or touch is dead after a reboot.
-- **Lag.** iptsd's defaults ignored small and fast movements, so the cursor
-  trailed the finger: `10-low-latency.conf` loosens both position thresholds.
-- **Broken swipes (fixed late, and the cause of several odd bugs).** A fast
-  swipe arrived as several 8-60 ms touches that jumped thousands of units
-  between them. Recorded on iptsd's virtual touchscreen, the cause was iptsd
-  dropping contacts whose shape was too long: a moving finger smears on the
-  sensor. `20-tracking.conf` raises `AspectMax` from 2.5 to 4; swipes now come
-  through as single contacts. This was behind pull-downs that rarely opened,
-  and behind taps at the top corner that typed "i press c i press c": the
-  pieces of a broken swipe landed on the keyboard's suggestion strip and
-  accepted suggestions over and over.
+### No touch at all
+- **Cause.** The stock Arch kernel has no driver for the Surface's touchscreen (IPTS).
+- **Fix.**
+  - The [linux-surface](https://github.com/linux-surface/linux-surface) kernel, plus `iptsd`, the daemon that turns the raw sensor data into touches.
+  - Limine's `BOOT_ORDER` puts the surface kernel first; otherwise a reboot lands on the stock kernel and touch is dead again.
+- **Test.** Touch works after every reboot.
+
+### The cursor trailed the finger
+- **Cause.** iptsd's default thresholds ignore small, fast movements.
+- **Fix.** `system/etc/iptsd.d/10-low-latency.conf` loosens them.
+
+### Swipes broke into pieces, and taps typed junk
+- **Problem.** Pull-downs rarely opened. Tapping a top corner typed "i press c i press c" into the open app.
+- **Cause.**
+  - We recorded the raw events from iptsd's virtual touchscreen: one fast swipe arrived as several touches of 8–60 ms that jumped across the screen.
+  - A moving finger smears into a longer blob on the sensor, and iptsd dropped blobs longer than its `AspectMax` of 2.5.
+  - The pieces then landed as taps, for example on the keyboard's word suggestions, accepting them over and over.
+- **Fix.** `system/etc/iptsd.d/20-tracking.conf` raises `AspectMax` to 4.
+- **Test.** The same recording now shows every swipe as one touch; pull-downs open every time.
+
+---
 
 ## 2. Tablet mode
 
-`tablet-mode on|off` switches between the normal desktop and a tablet layout.
-It follows the Type Cover (detached: tablet; attached: desktop) and can be
-switched by hand from the bar.
+- **Goal.** Detach the Type Cover and get a tablet; attach it and get the unchanged desktop back.
+- **How.**
+  - `surface-osk` watches for the cover and runs `tablet-mode on|off`.
+  - The tablet bar, finger-sized title bars, apps fitted between the bar and the dock, and sliding animations.
+  - Each window's desktop position is saved and restored afterwards.
 
-- **Layout.** Apps fill the screen between the bar and the dock, keeping
-  their title bars (bigger buttons); workspaces float so the dock shows;
-  windows go back where they were on the desktop afterwards.
-- **Look and motion.** Larger text, a taller bar, sliding workspaces, springy
-  app opening, the keyboard sliding up.
-- **Tablet bar.** Clock, workspaces, a search icon beside them, and a status
-  pill. Built fresh on each switch; the desktop bar comes back afterwards.
-- **Plugins across the switch.** Stage Control, O-Spotlight and Uber TV only
-  run while their entries are in the bar and keep their settings there, so
-  tablet mode carries the entries over (icons hidden or moved) and brings
-  settings changed in tablet mode back to the desktop. Omarchy only hands
-  plugins their bar settings when its plugin list changes, so the plugins are
-  reloaded after each switch.
-- **Bar lock (Omarchy patch).** Omarchy's bar turns any press that moves a few
-  pixels into a drag that rearranges it; a finger always moves a little, so
-  taps were lost and icons ended up out of reach. In tablet mode the bar is
-  locked (`bar-touch-lock.patch`).
+### Problems found on the way
 
-## 3. Gestures (tablet mode)
+| Problem | Cause | Fix |
+|---|---|---|
+| Plugins lost their settings after a mode switch | Omarchy hands plugins their bar settings only when its plugin list changes | Reload the plugins after each switch (`omarchy-shell shell rescanPlugins`) |
+| Bar icons moved when tapped, and ended up out of reach | Omarchy turns any press that moves a few pixels into a drag, and a finger always moves a little | `bar-touch-lock.patch` locks the bar in tablet mode; a pacman hook re-applies it after Omarchy updates |
+| Tapping "c" on the keyboard opened an app | The app drawer took the keyboard *exclusively*, so Hyprland sent every touch to it, including taps on the on-screen keyboard | The drawer takes the keyboard on demand |
+| The screensaver couldn't be closed by touch | It only closes on a key press | A tap anywhere closes it |
 
-- **Top edge.** Pull down on the left for the Notification Center, on the
-  right for the Control Center (the bar is for reading, not tapping).
-- **Bottom edge:** swipe up for the app drawer; the bottom-right corner is the
-  on-screen keyboard.
-- **Radial menu**, from a short inward swipe at the middle of the right edge
-  (works over any app) or a long press on empty desktop: AI (your default
-  agent), Search, Apps, Stage Control and Dock around the finger, chosen by
-  direction. It replaced a bottom-swipe menu chosen by how far you swiped,
-  which kept being hard to aim (even with a step-down rule on the way back).
-- **Workspaces:** swipe from the left or right edge (desktop too), or three
-  fingers on the touchpad.
-- **Screensaver.** Omarchy's screensaver closes only on a key press; in tablet
-  mode a tap anywhere now closes it.
+---
 
-## 4. Panels and apps (tablet mode)
+## 3. Gestures and panels
 
-- **Control Center:** Wi-Fi, Bluetooth, keyboard (and its settings page),
-  dock always-show / auto-hide, screenshot, screen recording, night light,
-  stay awake, reminders (a touch page), back to desktop, a Sound page
-  (Android style: system, microphone, each app, output and input devices),
-  Media Center for Uber TV, volume and brightness.
-- **Notification Center:** Omarchy's notification history grouped by app,
-  slide to dismiss, Clear All, Do Not Disturb, frosted glass behind it.
-- **App drawer:** every app as large icons with a row of recent ones; searches
-  apps only. It used to take the keyboard exclusively, which made Hyprland send
-  every touch to it: tapping "c" on the on-screen keyboard opened the app under
-  the key. It now takes the keyboard on demand.
-- **Stage Control** (marcho78's plugin): overview of every window and desktop,
-  with a touch mode (bar open, titles and close buttons always shown, long
-  press to rename).
-- **O-Spotlight** (marcho78's plugin): search for apps, Omarchy actions,
-  files and maths, in 12 styles; touch mode opens the keyboard with it and fits
-  it above the keyboard in every style.
-- **Uber TV** (marcho78's media center): enabled, with a play icon on the
-  desktop bar (a TV looked like the display and laptop icons) and the Control
-  Center tile in tablet mode.
+- **What.** Shell plugins draw thin invisible strips on the screen edges:
+  - pull-downs for the Control Center and the Notification Center
+  - swipe up for the app drawer
+  - a radial menu from the right edge or a long press: AI, Search, Apps, Stage Control, Dock
+- **Design change.** An earlier menu, chosen by how far you swiped up, was hard to aim; choosing by direction replaced it.
+- **AI** opens the user's own default agent (`omarchy-agent --pick`), whatever it is.
 
-## 5. On-screen keyboard
+---
 
-wvkbd, packaged in `packages/wvkbd` with patches:
+## 4. On-screen keyboard
 
-- standard US QWERTY like Gboard, with ?123 and =\< pages, a number-row
-  variant, a centred space bar, arrows in an inverted T, and Ctrl, Alt and the
-  Omarchy (Super) key for Omarchy's shortcuts;
-- held keys repeat, tapped keys stay lit long enough to see, a magnified
-  preview above the key;
-- a soft click per key (there is no vibration motor).
+- **wvkbd** (AUR) with four patches in `packages/wvkbd/`:
+  - held keys repeat
+  - a tapped key stays lit long enough to see
+  - a magnified key preview
+  - standard US QWERTY layouts like Gboard's, with Ctrl, Alt and the Omarchy key
+- **Word suggestions.** `surface-osk-keys` completes words from fcitx5's English dictionary and learns yours.
+- **Key click** instead of vibration, since the Surface has no vibration motor.
 
-Around it: a Gboard-style strip above the keys with Esc, three word
-suggestions (from fcitx5's English dictionary, learning your words), a mic,
-and the hide button; settings (layout, height, click, suggestions) on the
-Control Center's Keyboard page; English plus your system language.
+---
 
-## 6. Voice typing
+## 5. Voice typing
 
-The keyboard's mic types as you speak with Vosk through `nerd-dictation`
-(offline, lowercase, no punctuation). Omarchy's own dictation keys use Voxtype
-(Whisper: accurate, with punctuation, types once you stop). Live Whisper was
-tried and dropped: on this i5-6300U each pass took about 4 s against the
-0.8 s it needs. `--continuous` was dropped too: it ran phrases together.
+- **Goal.** A mic on the keyboard that types *while* you speak.
+- **Tried first: live Whisper.** Too slow: on this CPU each pass took 3.5–4 s against the 0.8 s it needs, so it fell behind and stuck.
+- **Fix.** Vosk, through `nerd-dictation`: offline, types as you speak (`home/.local/bin/surface-dictate`). Omarchy's own dictation keys keep Voxtype (Whisper), which is more accurate and has punctuation but types once you stop.
+- **Problem: phrases ran together with no spaces.** Cause: `--continuous` mode types each phrase without a leading space. Fix: dropped `--continuous`.
 
-## 7. Cameras
+---
 
-Front (OV5693) and back (OV8865) work through libcamera and PipeWire; the
-infrared camera isn't supported. The back camera came out black: its black
-level target was the sensor's default 16 while libcamera's IPU3 processing
-takes 64 off every pixel. `surface-camera-fix` rebuilds the OV8865 driver
-with the target at 64, and a pacman hook rebuilds it for each new kernel.
-Snapshot is the camera app; Monologue can't see the cameras (Qt only opens
-plain V4L2 webcams).
+## 6. Cameras
 
-## 8. Kept across updates
+### The back camera was black
+- **Cause.**
+  - The OV8865 sensor's black level target defaults to 16.
+  - libcamera's IPU3 processing subtracts 64 from every pixel.
+  - So everything darker than 64 came out black.
+- **Fix.** `surface-camera-fix` rebuilds the OV8865 driver from linux-surface's source with the target at 64, into `/usr/lib/modules/<kernel>/updates/`, so no package files are touched. A pacman hook rebuilds it for every new kernel.
+- **Test.** Both cameras take photos and video in Snapshot.
 
-- Omarchy updates: `surface-omarchy-patches` re-applies the shell patches
-  (bar lock, dock, theme picker sliding) through a pacman hook; a patch that
-  no longer fits is skipped and reported.
-- Kernel updates: `surface-camera-fix` rebuilds the camera driver.
-- Everything else lives in this repo, symlinked into `$HOME`;
-  `./install.sh` (or `--home`, `--patches`, `--camera`, `--voice`) sets it up.
+### Monologue can't use the cameras
+- **Cause.** Qt only opens plain webcams (V4L2), and these cameras work only through libcamera.
+- **Fix.** None: Snapshot is the camera app.
 
-## 9. Window controls (tablet mode)
+---
 
-- **Full screen.** The title bar's square button gives real full screen; a pill
-  at the top centre (pull down or tap) leaves it.
-- **Title bars or a handle.** The Control Center's Windows tile chooses: Omarchy's
-  title bars, or an iPad-style "•••" handle above the app in front with Full
-  screen, Hide and Close. Title bars are built for a mouse; on the Type Cover's
-  touchpad, taps that move a little are dropped by libinput, which is why the
-  buttons felt hit-or-miss.
-- **Hidden apps.** Hiding (minimizing) an app used to leave no way back by touch.
-  Now Stage Control shows hidden apps in touch mode (tap to bring one back), the
-  app drawer brings back a hidden copy instead of opening a second one, the
-  handle says where hidden apps live, and a **double tap on the empty desktop**
-  brings back the app hidden last.
-- **Bugs found and fixed on the way:**
-  - The handle showed for a hidden app: Hyprland keeps a hidden app as the
-    active window when nothing else is on screen. The handle now ignores apps
-    on hidden workspaces.
-  - No handle on an app back from hiding or from full screen: the handle
-    depended on a marker tablet mode adds when it fits an app to the screen,
-    and those apps were never fitted. Apps are now fitted on those events too,
-    and the handle no longer needs the marker.
-  - The double tap didn't work: Qt's built-in double click only counts a
-    second tap a few pixels from the first. It is now counted by hand (second
-    tap within 0.4 s and 80 px), the moment the second finger lands.
-- **Tested** by sending finger touches into the touchscreen device (the same
-  path a real finger takes), after a long press opening the radial menu proved
-  the touches arrive: double taps at 0, 20, 40 and 70 px apart and with a
-  0.3 s gap bring the app back (focused, handle showing); taps 0.7 s or 150 px
-  apart, and single taps, do nothing; long press still opens the menu.
+## 7. Window controls and hidden apps
 
-## 10. The black screen (a mistake of mine)
+- **Problem.** Title bars are built for a mouse:
+  - On the Type Cover's touchpad, libinput drops taps that move a little, so title-bar buttons felt hit-or-miss.
+  - In tablet mode, a hidden (minimized) app had no way back by touch.
+- **Fix.**
+  - A Control Center setting picks title bars or an iPad-style "•••" handle (Full screen, Hide, Close).
+  - Hidden apps show in Stage Control, and the app drawer brings back the hidden copy instead of opening a second one.
+  - A double tap on the empty desktop brings back the app hidden last.
 
-During that testing the screen went black and stayed black until the cover
-was detached. The cause was not tablet mode: an earlier command of mine, which
-was interrupted, had already stopped the Omarchy shell (wallpaper, bar, dock,
-gestures) and never started it again, and my checks said it was running
-because `pgrep -f omarchy-shell` matched my own command line. On an empty
-desktop with no shell, the screen is pure black. The shell was restarted; the
-reliable checks are `quickshell list` and `omarchy-shell shell ping`, and shell
-restarts now run detached so an interrupt can't cut them in half.
+### Bugs found on the way
 
-## 11. Voice typing stopped working: the microphones
+| Problem | Cause | Fix |
+|---|---|---|
+| The handle showed with nothing on screen | Hyprland keeps a hidden app as the "active window" | The handle ignores apps on hidden workspaces |
+| No handle on an app back from hiding or from full screen | The handle relied on a marker set when tablet mode fits an app, and those apps were never fitted | Fit apps on those events too, and drop the marker |
+| Double tap did nothing | Qt's double click only counts a second tap a few pixels from the first; fingers land further apart | Counted by hand: second tap within 0.4 s and 80 px |
 
-Three separate problems, found in this order. Everything was measured; the
-tests are described with each.
+### Test
+We sent finger touches into the touchscreen device, the same path a real
+finger takes.
+- **Proof the touches arrive:** a long press opens the radial menu.
+- **Should bring the app back,** and did, focused with the handle showing: double taps 0, 20, 40 and 70 px apart, and with a 0.3 s gap.
+- **Should do nothing,** and didn't: taps 0.7 s apart, taps 150 px apart, a single tap.
 
-1. **The sound chip lost its setup.** The built-in mic recorded loud noise that
-   didn't change with the volume (-9 dBFS of "silence" even at +10 dB; a real
-   mic reads about -60). Its pin configuration read "not connected" where the
-   firmware sets "internal digital mic": after boot the chip (Realtek ALC298)
-   had been reset to its power-on state, losing the setup the firmware gives
-   it at boot. A reboot fixed it. Saving the chip's full state (pins, vendor
-   coefficients, GPIOs) before and after the reboot showed 7 pin settings and
-   17 vendor settings differ. Before that reboot the Surface had suspended four
-   times (7 h, 80 s, 3 h, 10 s); since then a 4.5-minute suspend and a
-   hibernate both left the chip intact (hibernate runs the firmware again). So
-   a long suspend most likely causes it; not proven yet.
-2. **The level clipped.** After the reboot the mic worked but words came out
-   wrong. PipeWire gives a mic with no saved setting 100%, which on this chip
-   maxes both gain stages (+60 dB): room sound alone sat at -6 dBFS and
-   clipped. A sweep of seven levels showed the noise now followed the volume,
-   as a working mic's should. 35% (+30 dB, no boost) is now the saved level and,
-   through a WirePlumber rule, the starting level if the saving is ever lost
-   (tested by removing the saved setting and restarting WirePlumber).
-3. **One mic of the pair is inverted.** Recorded in stereo, the two mics move
-   in opposite directions (correlation -0.96 at low frequencies); mixed to
-   mono, as dictation records, the voice cancels (about 12 dB lost). The sound
-   driver has a standard fix: the hint `inv_dmic_split` gives the inverted mic
-   a switch of its own, off. Tested live first (driver reconfigured with
-   PipeWire stopped): the inverted channel went silent. Then dictation was
-   accurate in long sentences with a loud TV on. Made permanent with a driver
-   patch file matched to this chip only, and confirmed after a reboot.
+---
 
-Then **the wake-up fix** for problem 1: `surface-audio-wake.service` runs after
-every wake. If the internal mic pin reads "not connected" (the reset's
-fingerprint) it saves a copy of the reset state and writes the firmware's
-settings back (only those that differ), logging what it did. Tested on a normal
-wake (does nothing) and on a simulated reset (the marker set by hand: detected,
-restored). A real long sleep is still to come.
+## 8. Microphones (voice typing stopped working)
 
-Downloaded and installed for this: `alsa-tools` (for `hda-verb`, to read and
-write the chip's settings). Files: the driver patch file and modprobe option,
-the WirePlumber rule, `surface-audio-wake` and its service, all in this repo
-and installed by `./install.sh --audio` (the rule comes with `--home`).
+Three separate problems, found in this order.
 
-Along the way:
-- My first plan (just lower the volume) rested on a wrong assumption: the mic
-  then was broken, not too loud. The level sweep showed it.
-- A test that wrote the "after-reset" vendor settings back into the working
-  chip didn't reproduce the fault (the mic went silent instead), and cleared
-  two bits the chip sets itself, which writes can't restore. A reboot did.
-- Two recorded speech tests gave nothing useful: they depended on reading a
-  sentence at the right moment, with a TV on. Dictating for real was the test
-  that counted.
-- `sudo` asked for a password right after both reboots, though passwordless sudo
-  is set up (until Oct 26, 17:52); it worked again a little later.
-- PipeWire logs "RTKit error" at every start: RTKit isn't installed. It has been
-  there since boot, unrelated.
+### 8.1 The sound chip lost its setup
+- **Problem.** The mic recorded loud noise that didn't change with the volume: −9 dBFS of "silence" even at +10 dB gain, where a real mic reads about −60 dBFS.
+- **Cause.**
+  - The internal-mic pin read "not connected", where the firmware sets "internal digital mic".
+  - The sound chip (Realtek ALC298) had been reset to its power-on state, losing the setup the firmware gives it at boot.
+  - Before that, the Surface had suspended four times: 7 h, 80 s, 3 h and 10 s.
+  - Since then, a 4½-minute suspend and a hibernate left the chip intact. Hibernate runs the firmware again.
+  - **Most likely a long suspend; not proven yet.**
+- **Evidence.** We saved the chip's full state before and after a reboot (`hda-verb` from `alsa-tools`). 7 pin settings and 17 vendor settings differ.
+- **Fix.** `surface-audio-wake.service` runs after every wake:
+  - If the mic pin reads "not connected" (the reset's fingerprint), it keeps a copy of the reset state and writes back the firmware's settings that differ, then logs it (`journalctl -t surface-audio-wake`).
+  - Otherwise it does nothing.
+- **Test.**
+  - Normal wake: it does nothing.
+  - Simulated reset, with the marker set by hand: detected and restored.
+  - **Still to come:** a real long sleep.
 
-## 12. Open items
+### 8.2 The level clipped
+- **Problem.** After a reboot the mic worked, but dictation got almost every word wrong.
+- **Cause.**
+  - A mic with no saved setting gets 100%.
+  - On this chip that maxes both gain stages (+60 dB), so room sound alone reached −6 dBFS and clipped.
+  - A sweep of seven levels showed the noise now followed the volume, as a working mic's should.
+- **Fix.** 35% (+30 dB, no boost), saved by PipeWire. A WirePlumber rule (`home/.config/wireplumber/`) also makes 35% the starting level if the saved setting is ever lost.
+- **Test.** We removed the saved setting and restarted WirePlumber: the mic came back at 35%.
 
-- The microphone after a long sleep: the wake-up fix is in, but untested on a
-  real reset. Fallback if it isn't enough: turn long suspends into hibernate
-  (suspend-then-hibernate), which keeps the mic working.
-- Stage Control's hidden-apps change is in marcho78's own plugin repo,
-  uncommitted.
-- Touch in desktop mode: bar taps still turn into drags there (the lock is
-  tablet-only), and the edge swipes are tablet-only.
-- The front camera's picture is dim with a pink tint (no tuning file).
-- Combos on the on-screen keyboard (reported, not yet looked into).
-- Keyboard theming, including a coloured Omarchy key: planned.
-- `devsecai.app-switcher` is unused since Stage Control replaced it.
-- The learned suggestion pairs inflated by the junk text (i -> press -> c).
-- Uber TV: the icon and `barIcon` change in its own repo are uncommitted; its
-  log shows `Model size of -2 is less than 0` when it opens.
-- Running on other x86 tablets: see `TODO.md`.
+### 8.3 One mic of the pair is inverted
+- **Problem.** Better, but still weak.
+- **Cause.**
+  - Recorded in stereo, the two mics move in opposite directions: correlation −0.96 at low frequencies.
+  - Mixed to mono, as dictation records, the voice cancels: about 12 dB is lost.
+- **Fix.** The sound driver's standard fix for this wiring: the hint `inv_dmic_split` gives the inverted mic its own switch, which is off. It's applied by a patch file matched to this chip only (`system/usr/lib/firmware/surface-tablet/surface-pro-4-hda.fw`), loaded through `system/etc/modprobe.d/surface-audio.conf`.
+- **Test.**
+  - Tried live first: the driver was reconfigured with PipeWire stopped, and the inverted channel went silent.
+  - Then dictation was accurate in long sentences with a loud TV on.
+  - Confirmed after a reboot.
+
+---
+
+## 9. Mistakes worth knowing about
+
+- **A black screen.**
+  - An interrupted command of mine had already stopped the Omarchy shell (wallpaper, bar, gestures) and never restarted it. On an empty desktop with no shell, the screen is black.
+  - My checks said the shell was running because `pgrep -f omarchy-shell` matched my own command line.
+  - Now: check with `quickshell list` and `omarchy-shell shell ping`, and run shell restarts detached so an interrupt can't cut them in half.
+- **A wrong first plan for the mic.** "Just lower the volume" assumed the mic was too loud, when it was broken. The level sweep showed it.
+- **A test that changed the chip.** Writing the "after-reset" settings into the working chip didn't reproduce the fault. It also cleared two bits the chip sets itself, which a reboot restored.
+- **Recorded speech tests.** They depended on reading a sentence at the right moment, with a TV on. Dictating for real was the test that counted.
+
+---
+
+## 10. Everything installed
+
+| What | From | Why |
+|---|---|---|
+| `linux-surface`, `linux-surface-headers` | linux-surface repo (added with its signing key) | Touch, Type Cover, cameras |
+| `iptsd` | linux-surface repo | Touch daemon |
+| `wvkbd` | AUR, built from `packages/wvkbd` with our patches | On-screen keyboard |
+| `squeekboard` | Arch | Pop-up keyboard (in the installer; not installed on this machine, see README) |
+| `libcamera`, `libcamera-ipa`, `libcamera-tools`, `pipewire-libcamera` | Arch | Cameras |
+| `snapshot` (plus GStreamer plugins) | Arch | Camera app |
+| `voxtype-bin` | Omarchy's package repo | Omarchy's dictation keys |
+| `wtype`, `python-vosk`, `unzip` | Arch | Voice typing on the keyboard |
+| `nerd-dictation-git` | AUR | Voice typing on the keyboard |
+| `vosk-model-small-en-us-0.15` | alphacephei.com | Speech model, in `~/.local/share/vosk/` |
+| `alsa-tools` (`hda-verb`) | Arch | Read and write the sound chip's settings |

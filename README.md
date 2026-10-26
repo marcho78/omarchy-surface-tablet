@@ -1,214 +1,121 @@
-# Surface Pro 4 tablet setup for Omarchy
+# Surface Pro 4 tablet mode for Omarchy
 
-Touchscreen support and a tablet mode for a Surface Pro 4 running Omarchy
-(Arch Linux, Hyprland with Lua config, Quickshell-based omarchy-shell, Limine).
+Turns a Surface Pro 4 running [Omarchy](https://omarchy.org) (Arch Linux,
+Hyprland, Limine) into a touch-first tablet: working touch, an on-screen
+keyboard with suggestions and voice typing, edge gestures, a Control Center, and
+a tablet mode that switches on by itself when you detach the Type Cover. With
+the cover attached, the desktop stays exactly as Omarchy made it.
 
-```
+How each problem was found and solved, with the tests: **[WRITEUP.md](WRITEUP.md)**.
+What's left: **[TODO.md](TODO.md)**.
+
+## Install
+
+```bash
 git clone <this repo> ~/surface-tablet
-~/surface-tablet/install.sh     # then reboot
+~/surface-tablet/install.sh        # everything; asks for sudo; then reboot
 ```
 
-`./install.sh --home` redoes only the home-directory part (no sudo);
-`./install.sh --patches` only the Omarchy shell patches.
-
-## What it sets up
-
-**System** (needs sudo)
-- linux-surface pacman repo and signing key; packages `linux-surface`,
-  `linux-surface-headers`, `iptsd`, `squeekboard`, and `wvkbd` built from
-  `packages/wvkbd` (the AUR package plus touch patches: a held key such as Backspace
-  repeats; a tapped key stays lit for 150 ms; the key popup is a magnified preview
-  above the key, as on phone keyboards; and standard US QWERTY layouts like Gboard's,
-  with ?123 / =\< symbol pages and an Omarchy (Super) key).
-- `BOOT_ORDER="linux-surface, *, *fallback, Snapshots"` in `/etc/default/limine`,
-  then `limine-update`. Without it Limine boots the stock kernel and touch is dead.
-- `/etc/iptsd.d/10-low-latency.conf`: smaller contact movement threshold.
-- `/etc/iptsd.d/20-tracking.conf`: `AspectMax = 4`. A fast-moving finger smears into a longer
-  blob; at the default 2.5 iptsd dropped it mid-drag, so swipes arrived as several short
-  touches (pull-downs failed; pieces landed as taps, e.g. accepting word suggestions).
-- Cameras: `libcamera`, `libcamera-ipa`, `libcamera-tools` (`cam -l`) and `pipewire-libcamera`
-  (apps) drive the front (OV5693) and back (OV8865) cameras; the IR camera isn't supported.
-  The back camera came out black: the sensor's black level target defaults to 16 while
-  libcamera's IPU3 processing takes 64 off every pixel. `/usr/local/bin/surface-camera-fix`
-  rebuilds the OV8865 driver from linux-surface's source with the target at 64
-  (`system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch`) into
-  `/usr/lib/modules/<kernel>/updates/` (no package files touched), and a pacman hook
-  rebuilds it for each new linux-surface kernel. `surface-camera-fix --remove` undoes it.
-  Apps reach the cameras through PipeWire: Snapshot ("Camera", installed with them) takes
-  photos and videos with both. Browsers are untested (Chromium needs
-  `--enable-features=WebRtcPipeWireCamera`, not set). Monologue can't: Qt's camera
-  backends only open V4L2 webcams (its GStreamer backend skips PipeWire's libcamera
-  cameras too), and these cameras only work through libcamera. A v4l2loopback virtual
-  webcam fed from PipeWire would be the way; not set up.
-- Built-in microphones (`./install.sh --audio`, installs `alsa-tools` for `hda-verb`). The two
-  mics are wired with one inverted: mixed to mono the voice cancels (measured: the channels
-  move in opposite directions, correlation -0.96, ~12 dB of voice lost). The patch file
-  `/usr/lib/firmware/surface-tablet/surface-pro-4-hda.fw` (hint `inv_dmic_split`, matched to
-  this chip only), loaded by `/etc/modprobe.d/surface-audio.conf`, gives the inverted one an
-  "Inverted Capture Switch", which is off, so only the other records. A long sleep can reset
-  the sound chip to its power-on state, losing the firmware's mic setup (the mic then records
-  pure noise): `/usr/local/bin/surface-audio-wake`, run after every wake by
-  `surface-audio-wake.service`, checks the internal mic pin and, only if it was reset, writes
-  the firmware's pin configurations and vendor coefficients back
-  (`journalctl -t surface-audio-wake`; reset copies in `/var/lib/surface-tablet/audio`).
-
-- Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
-  applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook
-  after every Omarchy update. A patch that no longer fits a new version is skipped,
-  not forced. Currently:
-  - `image-picker-slide.patch`: slide a finger (or scroll) through the theme/background picker.
-  - `dock-autohide-touch.patch`: the dock shows on every workspace (Omarchy limits it to
-    floating ones) and follows its Always show / Auto-hide setting in
-    every case. Shown, it reserves its edge (tiled and maximized apps stop above it); auto-hidden,
-    the bottom edge brings it back by pointer or finger, also over fullscreen apps.
-  - `dock-reveal.patch`: an `omarchy-shell omarchy.dock reveal` command that brings an
-    auto-hidden dock up for a few seconds; tablet mode's short bottom swipe uses it.
-  - `bar-touch-lock.patch`: the top bar is locked in tablet mode. Omarchy turns a press
-    that moves a few pixels into a drag that rearranges the bar's icons (or moves the bar
-    to another edge); a finger always moves a little, so taps were lost and icons could
-    end up under the pull-down strips, out of reach.
-
-**Home** (symlinked from `home/`)
-- `~/.local/bin/surface-osk`: Type Cover watcher (layout styles: `standard` = Gboard-like
-  US QWERTY, `numbers` = the same with a number row). Cover off → tablet mode on and
-  the keyboard pops up on text fields; cover on → desktop mode. `surface-osk toggle`
-  shows/hides the keyboard; `surface-osk set style|size|click ...` changes its
-  layout (saved in `~/.config/surface-osk/settings`, also set from the Control
-  Center's Keyboard page). Besides English it shows your system language
-  (Hyprland `kb_layout`, then `$LANG`) when wvkbd has a layout for it. Key click:
-  the Surface Pro 4 has no vibration motor, so each key press plays a soft click
-  (`~/.local/share/surface-osk/click.wav`, from the sound server's sample cache);
-  on by default, switchable on the Keyboard page. Word suggestions (Gboard-style
-  strip above the keys): `~/.local/bin/surface-osk-keys` reads the keys wvkbd reports,
-  completes the word being typed from fcitx5's English dictionary, offers typo fixes
-  and next words, learns your words (plain-letter new words only after 3 uses;
-  `~/.local/share/surface-osk/learned.json`, mode 600), and types a tapped suggestion
-  with wtype. Suggestions on/off and Forget learned words on the Keyboard page.
-  The strip also has Esc at its left end (`wtype -k Escape`; wvkbd keeps Esc two pages
-  away, on =\<).
-  Voice typing: the mic in the suggestion strip runs `~/.local/bin/surface-dictate
-  toggle`, red and pulsing while it listens (state in
-  `$XDG_RUNTIME_DIR/surface-dictate/state`). Vosk, through `nerd-dictation` (AUR, with
-  `python-vosk` and the small English model, `vosk-model-small-en-us-0.15`, in
-  `~/.local/share/vosk/`), types at the cursor while you speak, with `wtype`, and
-  corrects the last words as it hears more. Offline. The first word is capitalised;
-  the small model types no punctuation. It stops after 30 seconds without speech, or
-  when the keyboard is put away. Not in `--continuous` mode: that types each phrase
-  without a space before it, so phrases ran together. Omarchy's own dictation keys
-  (Super+Ctrl+X, hold F9 / Right Alt) use Voxtype as Omarchy sets it up: offline
-  Whisper, more accurate, with punctuation, but it types once you stop. Live Whisper
-  (`whisper.streaming`) was tried: on this i5-6300U each pass took 3.5-4 s against
-  Voxtype's 0.8 s tick, so it fell behind and stuck. `./install.sh --voice` sets both up.
-- `~/.local/bin/tablet-mode on|off|toggle|status|home|refit`. Swaps in the tablet bar
-  (clock, workspaces with O-Spotlight's search icon beside them, status pill), carries
-  Stage Control's, O-Spotlight's and Uber TV's bar entries over and their settings back,
-  and reloads the shell's plugins after each switch (they only see bar settings change
-  then).
-- `~/.config/hypr/tablet.lua`: tablet look (big titlebars, apps fill the screen; the titlebar's
-  square button and a double tap give real full screen, not Omarchy's maximize, which tablet mode
-  fought: it snapped back, then left a maximized window with no titlebar), tablet
-  motion (sliding workspaces, springy app open, keyboard slides up), and
-  workspace swipes in both modes (touchscreen edge swipe, 3-finger touchpad swipe).
-- Shell plugins in `~/.config/omarchy/plugins/`:
-  - `devsecai.control-center`: Control Center panel: Wi-Fi, Bluetooth, keyboard (and its settings
-    page), Dock always-show/auto-hide, screenshot, Record (whole screen with system sound,
-    `omarchy-capture-screenrecording`; red while recording), Night Light and Stay Awake (Omarchy's
-    toggles), Reminder (a page: 5-60 minutes, an optional message, Set / Clear all, what's coming
-    up; `omarchy-reminder`), back to desktop, Sound (a page, Android style: system volume,
-    microphone, a slider per app playing sound, and the output and input devices to use), Media
-    Center (Uber TV, when installed), volume and brightness. It takes the keyboard on demand
-    (typing a reminder's message with the on-screen keyboard)
-  - `devsecai.gestures`: edge swipes in tablet mode. Bottom edge, swipe up: app drawer;
-    bottom-right corner: keyboard; top-right / top-left pull-down: Control Center /
-    Notification Center. Middle of the right edge, swipe in: a radial menu (AI, Search, Apps,
-    Stage Control, and Dock while it auto-hides) fanned out round the finger; slide to one and
-    let go, or let go and tap one. Long press on empty desktop: the same menu all round. AI is
-    `omarchy-agent --pick`, the user's default agent whatever it is. Choosing by direction
-    replaced an earlier bottom-swipe menu chosen by distance, which was hard to aim. While
-    Omarchy's screensaver shows in tablet mode, a tap anywhere closes it (SIGHUP to
-    `omarchy-screensaver`, which exits cleanly): it only closes on a key press otherwise. Also
-    the keyboard's suggestion strip (Esc, suggestions, mic, hide). While an app is full screen,
-    a pill at the top centre takes you out: pull down or tap it. Window controls (Control
-    Center's Windows tile, `~/.local/state/tablet-mode/window-controls`): title bars, or an
-    iPad-style "•••" handle above the app in front (Full screen, Hide, Close); hidden apps are
-    in Stage Control and the dock. Double tap on empty desktop: brings back the app hidden last
-    (`~/.local/bin/tablet-last-app`), counted by hand since Qt's double click wants the taps a
-    few pixels apart
-  - `devsecai.notification-center`: Notification Center (pull down on the left of the
-    tablet bar): Omarchy's notification history grouped by app, tap to open the app
-    (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to
-    dismiss, two-tap Clear All, Do Not Disturb; frosted-glass background
-  - `devsecai.app-drawer`: app drawer (long swipe up from the bottom edge), laid out like
-    Android's drawer / iPadOS App Library: search pill (tap for the keyboard), suggestions
-    row of recently opened apps, every app A to Z as large icons; opens over what you are
-    doing, swipe down to close. Uses Omarchy's app library for apps, icons and launching.
-    Searches apps only (O-Spotlight searches everything). In tablet mode it takes the
-    keyboard on demand, not exclusively: an exclusive grab made Hyprland send every touch
-    to the drawer, so a tap on a key opened the app under it
-  - `devsecai.app-switcher`: app switcher, as on iOS/Android: every open window
-    (minimized ones too) as a live card, most recent first; tap a card to switch to it
-    (`tablet-open-app --address`), slide it up to close the window. No longer on the
-    bottom swipe (Stage Control replaced it); kept for now
-  - `devsecai.tablet-clock`, `devsecai.tablet-status`: tablet bar widgets
-  - `devsecai.osk`, `devsecai.tablet`: desktop bar buttons (keyboard, tablet mode)
-
-**Third-party plugins** (marcho78's, installed with `omarchy plugin add`; not copied here)
-- `marcho78.stage-control`: Mission Control-style overview of every window and desktop.
-  Bottom swipe partway in tablet mode, `Super+D` docked (`stageKey` in shell.json; Omarchy
-  already uses Super+A and Super+Tab). Touch mode in tablet mode: the desktops bar stays
-  open, window titles and close buttons always show (bigger), long-press a desktop to
-  rename it. In touch mode hidden (minimized) apps show too; tap one to bring it back.
-- `marcho78.o-spotlight`: Spotlight-style search for apps, Omarchy actions and settings,
-  files and maths, with 12 styles. `Alt+Space` and the bar icon docked; in tablet mode the
-  search icon in the middle of the bar, or the bottom swipe to Search. Touch mode: the
-  on-screen keyboard opens and closes with it, the search fits above the keyboard (and
-  follows it when you put it away), no hover-only controls, long-press the magnifying glass
-  in its search field for settings, keyboard-shortcut hints hidden, keyboard focus on demand.
-- `marcho78.om-pg` (Uber TV): media center for YouTube, IPTV, its guide and apps.
-  `Super+Alt+T` or its bar button (a play icon, so it doesn't look like the bar's display
-  and laptop icons) docked; in tablet mode the Control Center's Media Center tile, with
-  its bar icon hidden: its bar button now also hides when its bar entry has
-  `"barIcon": false`, which the tablet bar sets.
-- The touch-mode changes are local edits in those plugins' own git repos; they follow
-  tablet mode through `~/.local/state/tablet-mode/state` (Uber TV's through its bar entry).
-
-**Patched** (a few lines added to files that hold your own settings)
-- `~/.config/hypr/hyprland.lua`: `tablet.before()` / `tablet.after()` around Omarchy's defaults
-- `~/.config/hypr/autostart.lua`: starts `surface-osk`
-- `~/.config/hypr/bindings.lua`: `Super+Shift+K` toggles the keyboard
-- `~/.config/chromium-flags.conf`: `--enable-wayland-ime --wayland-text-input-version=3`
-- `~/.config/omarchy/shell.json`: enables the plugins, adds the bar buttons
-- `~/.config/wireplumber/wireplumber.conf.d/50-surface-mic.conf`: the built-in mics start at
-  35% when nothing is saved. WirePlumber's default for a mic is 100%, which here is +60 dB
-  (Capture +30 and Internal Mic Boost +30): room sound alone clips and dictation hears nonsense
-
-## Camera hardware
-
-| Part | Hardware | Driver (kernel module) |
+| Option | Installs | Needs |
 |---|---|---|
-| Camera interface | Intel IPU3 CSI-2 receiver | `ipu3-cio2`, plus `ipu_bridge`, which wires the sensors up from ACPI |
-| Image processor | Intel IPU3 ImgU | `ipu3-imgu` + firmware `intel/irci_irci_ecr-master_20161208_0213_20170112_1500.bin` (from `linux-firmware`) |
-| Front camera | OV5693 (ACPI `INT33BE`) | `ov5693` |
-| Back camera | OV8865 (ACPI `INT347A`) | `ov8865` (our rebuilt copy in `updates/`) |
-| Back autofocus | DW9719 lens motor | `dw9719` |
-| Infrared camera | OV7251 (ACPI `INT347E`) | `ov7251` (libcamera doesn't support it) |
-| Camera power | three INT3472 devices | `int3472-discrete` (GPIO-switched) |
-| Apps | libcamera with the IPU3 pipeline and generic tuning | `libcamera`, `libcamera-ipa`, `pipewire-libcamera` |
+| *(none)* | everything below | sudo, reboot |
+| `--home` | scripts, Hyprland config, shell plugins (symlinked into `~`) | nothing |
+| `--patches` | touch fixes to Omarchy's own shell, kept across Omarchy updates | sudo |
+| `--camera` | the back-camera driver fix, rebuilt for each new kernel | sudo, reboot |
+| `--voice` | voice typing (Vosk for the keyboard's mic, Voxtype for Omarchy's keys) | sudo |
+| `--audio` | built-in microphone fixes | sudo, reboot |
 
-All the kernel drivers come with the linux-surface kernel and the firmware with
-`linux-firmware`; there are no separate driver packages.
+Running it again is safe: every step checks before it changes anything. Files
+under `home/` are symlinks, so editing them edits this repo.
 
-## Notes
-- Service plugins (gestures) only reload with `omarchy restart shell`.
-- `tools/taplog.py` (run with sudo) logs touch events, for debugging lag.
+## What you get
 
-## Pending on this machine
-Built but needing sudo to install:
-- `./install.sh --patches`: installs `bar-touch-lock.patch` (top bar locked in tablet mode),
-  then `omarchy restart shell`.
-- `sudo pacman -S squeekboard`: keyboard pops up on text fields (conflicts with fcitx5,
-  which currently owns the input method).
+**Touch.** The linux-surface kernel and `iptsd` touch daemon, tuned so the
+cursor keeps up with your finger and fast swipes aren't cut into pieces.
 
-`WRITEUP.md` tells the whole story in one place; `git log` has the reasoning behind each change. `TODO.md` lists what is planned,
-starting with making this work on any x86 tablet, not only the Surface Pro 4.
+**Tablet mode.** Detach the cover (or tap the tablet button in the bar):
+- apps fill the screen with finger-sized title bars, or an iPad-style "•••" handle
+- a taller bar with a clock, desktops and search
+- sliding animations
 
+Re-attach and everything goes back where it was.
+
+**Gestures** (tablet mode):
+
+| Gesture | Opens |
+|---|---|
+| Pull down, top right | Control Center |
+| Pull down, top left | Notification Center |
+| Swipe up from the bottom | App drawer |
+| Bottom-right corner | Keyboard |
+| Swipe in from the middle of the right edge, or long-press the desktop | Radial menu: AI, Search, Apps, Stage Control, Dock |
+| Swipe in from the left or right edge | Next or previous desktop |
+| Double-tap the empty desktop | The app you hid last |
+| Pull down at the top centre | Leaves full screen |
+
+**Control Center.** Wi-Fi, Bluetooth, keyboard settings, dock, window controls,
+screenshot, screen recording, night light, stay awake, reminders, a Sound page
+(per app, Android style), Media Center, volume and brightness.
+
+**On-screen keyboard** (wvkbd, patched):
+- US QWERTY like Gboard, with symbol pages, arrow keys and Ctrl, Alt and Omarchy keys
+- held keys repeat
+- word suggestions that learn your words
+- a key click
+- Esc, and a **mic for voice typing**: offline, typing as you speak
+
+**Cameras.** Front and back work in Snapshot (the "Camera" app). The back
+camera needed a driver fix.
+
+**Microphones.** Fixed for dictation: one of the pair is wired inverted, the
+default level clipped, and a long sleep could reset the sound chip.
+
+## Hardware
+
+Surface Pro 4: Intel i5-6300U, 4 GB RAM, IPTS touchscreen and pen, Realtek
+ALC298 sound, Intel IPU3 cameras (front OV5693, back OV8865).
+
+| Part | Driver | Comes from |
+|---|---|---|
+| Touchscreen and pen | IPTS + `iptsd` | linux-surface kernel, `iptsd` package |
+| Type Cover | `surface_aggregator`, `hid-multitouch` | linux-surface kernel |
+| Cameras | `ipu3-cio2`, `ipu3-imgu`, `ov5693`, `ov8865` (rebuilt), `dw9719` | linux-surface kernel; firmware from `linux-firmware` |
+| Sound | `snd_hda_intel` + patch file | kernel; patch file from this repo |
+
+The infrared camera (OV7251) isn't supported by libcamera.
+
+## Repo layout
+
+| Path | What it is |
+|---|---|
+| `install.sh` | The installer (options above) |
+| `home/.local/bin/` | `tablet-mode` (switches modes), `surface-osk` (keyboard and cover watcher), `surface-osk-keys` (word suggestions), `surface-dictate` (voice typing), `tablet-open-app`, `tablet-last-app` |
+| `home/.config/hypr/tablet.lua` | Tablet look, animations, workspace swipes, full screen |
+| `home/.config/omarchy/plugins/devsecai.*` | Shell plugins: `gestures`, `control-center`, `notification-center`, `app-drawer`, `tablet-clock`, `tablet-status`, bar buttons (`osk`, `tablet`), and `app-switcher` (unused) |
+| `home/.config/wireplumber/` | Microphone starting level (35%) |
+| `system/etc/iptsd.d/` | Touch tuning |
+| `system/usr/local/bin/` | `surface-omarchy-patches`, `surface-camera-fix`, `surface-audio-wake` |
+| `system/usr/local/share/surface-tablet/` | The Omarchy shell patches and the camera driver patch |
+| `system/etc/pacman.d/hooks/` | Re-apply the shell patches after Omarchy updates; rebuild the camera driver after kernel updates |
+| `system/usr/lib/firmware/`, `system/etc/modprobe.d/` | The sound chip's patch file and the option that loads it |
+| `system/etc/systemd/system/` | `surface-audio-wake.service`, which checks the sound chip after every wake |
+| `packages/wvkbd/` | The on-screen keyboard: the AUR package plus four patches |
+| `tools/taplog.py` | Logs touch events, for debugging |
+
+Also used, from marcho78's own plugin repos (not copied here, with local
+touch-mode changes): Stage Control (window overview), O-Spotlight (search), Uber
+TV (media center).
+
+## Known issues
+
+- **Chromium closes while typing with Shift on the Type Cover.** Under
+  investigation; the main suspect is the input-method path, which includes the
+  two flags this repo adds (`--enable-wayland-ime --wayland-text-input-version=3`).
+- **Mic after a long sleep.** The wake-up fix is in but hasn't yet met a real
+  reset.
+- **Touch in desktop mode.** Bar taps can turn into drags, and the edge swipes
+  are tablet-only.
+- **Front camera.** Dim, with a pink tint (no tuning file).
+- **squeekboard** (keyboard that pops up on text fields) is in the installer but
+  not installed here: it conflicts with fcitx5, which owns the input method.
+- **Service plugins** (gestures) only reload with `omarchy restart shell`.

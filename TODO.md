@@ -1,5 +1,21 @@
 # To do
 
+## Open on this machine
+
+- [ ] **Chromium closes while typing with Shift on the Type Cover.** Not a
+  crash (no error, no core dump); something ends it. Main suspect: the
+  input-method path (fcitx5 plus the two flags this repo adds,
+  `--enable-wayland-ime --wayland-text-input-version=3`). Next: reproduce on a
+  local test page with Chromium closed, then with the flags removed.
+- [ ] **Mic after a long sleep.** `surface-audio-wake.service` is in; leave the
+  Surface suspended for hours, then check `journalctl -t surface-audio-wake` and
+  dictate. If writing the settings back isn't enough: suspend-then-hibernate.
+- [ ] **marcho78's plugins.** Stage Control (hidden apps in touch mode) and Uber
+  TV (play icon) have local, uncommitted changes in their own repos.
+- [ ] **Unused:** `devsecai.app-switcher` (Stage Control replaced it); remove or
+  keep.
+- [ ] **Front camera** tint (no tuning file).
+
 ## Make it work on any x86 tablet, not only the Surface Pro 4
 
 Most of this repo is hardware-neutral: tablet mode, the shell plugins (Control
