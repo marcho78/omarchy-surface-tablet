@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Exceptions: patches to other projects keep their project's license.
-- packages/wvkbd/*.patch patch wvkbd and are GPL-3.0, like wvkbd.
-- system/usr/local/share/surface-tablet/ov8865/ov8865-black-level.patch
-  patches the Linux kernel and is GPL-2.0-only, like the kernel.
