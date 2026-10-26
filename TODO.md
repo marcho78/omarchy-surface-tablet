@@ -2,8 +2,8 @@
 
 ## Open on this machine
 
-- [ ] **Chromium closes while typing with Shift on the Type Cover.** Not a
-  crash (no error, no core dump); something ends it. Main suspect: the
+- [ ] **Chromium closes while typing with Shift on the Type Cover.** No error
+  message and no core dump; whether it crashes or gets closed isn't known yet. Main suspect: the
   input-method path (fcitx5 plus the two flags this repo adds,
   `--enable-wayland-ime --wayland-text-input-version=3`). Next: reproduce on a
   local test page with Chromium closed, then with the flags removed.

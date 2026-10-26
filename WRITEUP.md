@@ -20,8 +20,9 @@ Machine: Surface Pro 4 (i5-6300U, 4 GB RAM) on Omarchy: Arch Linux, Hyprland
 - **Test.** Touch works after every reboot.
 
 ### The cursor trailed the finger
-- **Cause.** iptsd's default thresholds ignore small, fast movements.
-- **Fix.** `system/etc/iptsd.d/10-low-latency.conf` loosens them.
+- **Cause.** iptsd ignores movements under 0.4 mm and over 2 cm by default
+  (`PositionThresholdMin` / `Max` in `/etc/iptsd.conf`).
+- **Fix.** `system/etc/iptsd.d/10-low-latency.conf` sets them to 0.2 mm and 10 cm.
 
 ### Swipes broke into pieces, and taps typed junk
 - **Problem.** Pull-downs rarely opened. Tapping a top corner typed "i press c i press c" into the open app.
@@ -30,7 +31,8 @@ Machine: Surface Pro 4 (i5-6300U, 4 GB RAM) on Omarchy: Arch Linux, Hyprland
   - A moving finger smears into a longer blob on the sensor, and iptsd dropped blobs longer than its `AspectMax` of 2.5.
   - The pieces then landed as taps, for example on the keyboard's word suggestions, accepting them over and over.
 - **Fix.** `system/etc/iptsd.d/20-tracking.conf` raises `AspectMax` to 4.
-- **Test.** The same recording now shows every swipe as one touch; pull-downs open every time.
+- **Test.** Recorded again: the same swipes came through as single touches
+  (340–3000 ms), and 5 of 6 pull-downs fired.
 
 ---
 
@@ -117,7 +119,7 @@ Machine: Surface Pro 4 (i5-6300U, 4 GB RAM) on Omarchy: Arch Linux, Hyprland
 |---|---|---|
 | The handle showed with nothing on screen | Hyprland keeps a hidden app as the "active window" | The handle ignores apps on hidden workspaces |
 | No handle on an app back from hiding or from full screen | The handle relied on a marker set when tablet mode fits an app, and those apps were never fitted | Fit apps on those events too, and drop the marker |
-| Double tap did nothing | Qt's double click only counts a second tap a few pixels from the first; fingers land further apart | Counted by hand: second tap within 0.4 s and 80 px |
+| Double tap did nothing | Not proven. The first version used Qt's built-in double click, which is strict about how close the two taps land | Counted by hand: second tap within 0.4 s and 80 px |
 
 ### Test
 We sent finger touches into the touchscreen device, the same path a real
@@ -133,7 +135,8 @@ finger takes.
 Three separate problems, found in this order.
 
 ### 8.1 The sound chip lost its setup
-- **Problem.** The mic recorded loud noise that didn't change with the volume: −9 dBFS of "silence" even at +10 dB gain, where a real mic reads about −60 dBFS.
+- **Problem.** The mic recorded loud noise that didn't change with the volume:
+  −9 dBFS of "silence" at +10 dB gain. After the fix, the same gain read −50 dBFS.
 - **Cause.**
   - The internal-mic pin read "not connected", where the firmware sets "internal digital mic".
   - The sound chip (Realtek ALC298) had been reset to its power-on state, losing the setup the firmware gives it at boot.
@@ -146,7 +149,9 @@ Three separate problems, found in this order.
   - Otherwise it does nothing.
 - **Test.**
   - Normal wake: it does nothing.
-  - Simulated reset, with the marker set by hand: detected and restored.
+  - Simulated reset, with only the marker set by hand: detected, marker
+    restored. The vendor settings already matched, so this didn't exercise
+    writing them; writing them with `hda-verb` was tested separately.
   - **Still to come:** a real long sleep.
 
 ### 8.2 The level clipped
@@ -156,10 +161,12 @@ Three separate problems, found in this order.
   - On this chip that maxes both gain stages (+60 dB), so room sound alone reached −6 dBFS and clipped.
   - A sweep of seven levels showed the noise now followed the volume, as a working mic's should.
 - **Fix.** 35% (+30 dB, no boost), saved by PipeWire. A WirePlumber rule (`home/.config/wireplumber/`) also makes 35% the starting level if the saved setting is ever lost.
-- **Test.** We removed the saved setting and restarted WirePlumber: the mic came back at 35%.
+- **Test.**
+  - You dictated a full sentence correctly at 35%.
+  - We removed the saved setting and restarted WirePlumber: the mic came back at 35%.
 
 ### 8.3 One mic of the pair is inverted
-- **Problem.** Better, but still weak.
+- **Problem.** Found by measuring, while dictation already worked at 35%.
 - **Cause.**
   - Recorded in stereo, the two mics move in opposite directions: correlation −0.96 at low frequencies.
   - Mixed to mono, as dictation records, the voice cancels: about 12 dB is lost.
@@ -179,6 +186,9 @@ Three separate problems, found in this order.
   - Now: check with `quickshell list` and `omarchy-shell shell ping`, and run shell restarts detached so an interrupt can't cut them in half.
 - **A wrong first plan for the mic.** "Just lower the volume" assumed the mic was too loud, when it was broken. The level sweep showed it.
 - **A test that changed the chip.** Writing the "after-reset" settings into the working chip didn't reproduce the fault. It also cleared two bits the chip sets itself, which a reboot restored.
+- **A claim I hadn't checked.** I wrote into these docs that two plugins' commits
+  weren't on GitHub, without checking GitHub. Checked afterwards with
+  `git ls-remote`: it was true, but it was stated before it was known.
 - **Recorded speech tests.** They depended on reading a sentence at the right moment, with a TV on. Dictating for real was the test that counted.
 
 ---
@@ -187,8 +197,8 @@ Three separate problems, found in this order.
 
 Three of my own Omarchy shell plugins, each in its own repo. Tablet mode needed
 touch versions of them: no hover, bigger targets, and the on-screen keyboard.
-They read `~/.local/state/tablet-mode/state`, so they switch along with tablet
-mode. Tablet mode also carries their bar entries and settings across, and
+Stage Control and O-Spotlight read `~/.local/state/tablet-mode/state`, so
+they switch along with tablet mode; Uber TV follows its bar entry instead. Tablet mode also carries their bar entries and settings across, and
 reloads them after each switch (section 2).
 
 ### Stage Control: [marcho78/omarchy-stage-control](https://github.com/marcho78/omarchy-stage-control)
@@ -232,9 +242,10 @@ reloads them after each switch (section 2).
 | `wvkbd` | AUR, built from `packages/wvkbd` with our patches | On-screen keyboard |
 | `squeekboard` | Arch | Pop-up keyboard (in the installer; not installed on this machine, see README) |
 | `libcamera`, `libcamera-ipa`, `libcamera-tools`, `pipewire-libcamera` | Arch | Cameras |
-| `snapshot` (plus GStreamer plugins) | Arch | Camera app |
+| `snapshot` | Arch | Camera app |
+| `gst-libav`, `gst-plugins-bad`, `gst-plugins-ugly`, `qt6-multimedia-gstreamer` | Arch | Tried so Monologue could see the cameras; it didn't help. Not in `install.sh` |
 | `voxtype-bin` | Omarchy's package repo | Omarchy's dictation keys |
-| `wtype`, `python-vosk`, `unzip` | Arch | Voice typing on the keyboard |
+| `wtype`, `python-vosk` (with `vosk-api`), `unzip` | Arch | Voice typing on the keyboard |
 | `nerd-dictation-git` | AUR | Voice typing on the keyboard |
 | `vosk-model-small-en-us-0.15` | alphacephei.com | Speech model, in `~/.local/share/vosk/` |
 | `alsa-tools` (`hda-verb`) | Arch | Read and write the sound chip's settings |

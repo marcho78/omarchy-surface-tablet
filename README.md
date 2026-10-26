@@ -22,11 +22,12 @@ git clone <this repo> ~/surface-tablet
 | `--home` | scripts, Hyprland config, shell plugins (symlinked into `~`) | nothing |
 | `--patches` | touch fixes to Omarchy's own shell, kept across Omarchy updates | sudo |
 | `--camera` | the back-camera driver fix, rebuilt for each new kernel | sudo, reboot |
-| `--voice` | voice typing (Vosk for the keyboard's mic, Voxtype for Omarchy's keys) | sudo |
+| `--voice` | voice typing (Vosk for the keyboard's mic, Voxtype for Omarchy's keys) | sudo, `yay` (AUR) |
 | `--audio` | built-in microphone fixes | sudo, reboot |
 
-Running it again is safe: every step checks before it changes anything. Files
-under `home/` are symlinks, so editing them edits this repo.
+Running it again is safe: every step checks before it changes anything. The
+full install also runs a system upgrade (`pacman -Syu`). Files under `home/` are
+symlinks, so editing them edits this repo.
 
 ## What you get
 
@@ -47,11 +48,11 @@ Re-attach and everything goes back where it was.
 | Pull down, top right | Control Center |
 | Pull down, top left | Notification Center |
 | Swipe up from the bottom | App drawer |
-| Bottom-right corner | Keyboard |
+| Swipe up from the bottom-right corner | Keyboard on or off |
 | Swipe in from the middle of the right edge, or long-press the desktop | Radial menu: AI, Search, Apps, Stage Control, Dock |
-| Swipe in from the left or right edge | Next or previous desktop |
+| Swipe in from the left edge, or the right edge away from its middle | Next or previous desktop (desktop mode too) |
 | Double-tap the empty desktop | The app you hid last |
-| Pull down at the top centre | Leaves full screen |
+| Pull down at the top centre, while an app is full screen | Leaves full screen |
 
 **Control Center.** Wi-Fi, Bluetooth, keyboard settings, dock, window controls,
 screenshot, screen recording, night light, stay awake, reminders, a Sound page
@@ -67,8 +68,9 @@ screenshot, screen recording, night light, stay awake, reminders, a Sound page
 **Cameras.** Front and back work in Snapshot (the "Camera" app). The back
 camera needed a driver fix.
 
-**Microphones.** Fixed for dictation: one of the pair is wired inverted, the
-default level clipped, and a long sleep could reset the sound chip.
+**Microphones.** Fixed for dictation: one of the pair is wired inverted, and the
+default level clipped. A long sleep can also reset the sound chip; a check after
+every wake restores it (not yet tested on a real reset).
 
 ## Hardware
 
@@ -78,7 +80,7 @@ ALC298 sound, Intel IPU3 cameras (front OV5693, back OV8865).
 | Part | Driver | Comes from |
 |---|---|---|
 | Touchscreen and pen | IPTS + `iptsd` | linux-surface kernel, `iptsd` package |
-| Type Cover | `surface_aggregator`, `hid-multitouch` | linux-surface kernel |
+| Type Cover | `hid-multitouch` (it's a USB keyboard and touchpad) | kernel |
 | Cameras | `ipu3-cio2`, `ipu3-imgu`, `ov5693`, `ov8865` (rebuilt), `dw9719` | linux-surface kernel; firmware from `linux-firmware` |
 | Sound | `snd_hda_intel` + patch file | kernel; patch file from this repo |
 
@@ -121,8 +123,8 @@ tablet mode is in [WRITEUP.md](WRITEUP.md#10-plugins-used).
   two flags this repo adds (`--enable-wayland-ime --wayland-text-input-version=3`).
 - **Mic after a long sleep.** The wake-up fix is in but hasn't yet met a real
   reset.
-- **Touch in desktop mode.** Bar taps can turn into drags, and the edge swipes
-  are tablet-only.
+- **Touch in desktop mode.** Bar taps can turn into drags, and the pull-downs,
+  bottom swipe and radial menu are tablet-only (desktop swipes work in both).
 - **Front camera.** Dim, with a pink tint (no tuning file).
 - **squeekboard** (keyboard that pops up on text fields) is in the installer but
   not installed here: it conflicts with fcitx5, which owns the input method.
