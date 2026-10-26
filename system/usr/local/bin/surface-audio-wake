@@ -1,0 +1,75 @@
+#!/bin/bash
+# Surface Pro 4: after a long sleep the sound chip (Realtek ALC298) can come
+# back reset to its power-on state, without the setup the firmware gives it at
+# boot (seen after suspends of hours, not of minutes). The built-in microphones
+# then record only noise. surface-audio-wake.service runs this after every
+# wake: when the chip has been reset (its internal mic pin reads "not
+# connected"), it writes the firmware's setup back, keeping a copy of the reset
+# state in /var/lib/surface-tablet/audio. Logs to the journal
+# (journalctl -t surface-audio-wake).
+#
+#   surface-audio-wake          check, and restore if the chip was reset
+#   surface-audio-wake --force  restore whatever differs, even if it looks intact
+set -u
+
+DEV=/dev/snd/hwC0D0
+CODEC=/proc/asound/card0/codec#0
+KEEP=/var/lib/surface-tablet/audio
+
+# The firmware's setup, read from this Surface after boot: the pin
+# configurations and Realtek vendor coefficients that a reset changes.
+PINS=(
+  "0x12 0x90a60140"  # internal microphones (digital)
+  "0x13 0x40000000"
+  "0x14 0x90170110"  # speakers
+  "0x18 0x03a11030"  # headset microphone
+  "0x1a 0x411111f0"
+  "0x1d 0x4066826d"
+  "0x21 0x03211020"  # headphones
+)
+COEFS=(
+  "0x0e 0x6f80" "0x10 0x1822" "0x19 0x0017" "0x1a 0x8200" "0x2a 0x0f18" "0x2b 0x0cd0"
+  "0x2d 0x3020" "0x2e 0x22f2" "0x36 0x6100" "0x4e 0xc3fe" "0x4f 0xb009" "0x50 0x0000"
+  "0x64 0x7fa1" "0x68 0xd016" "0x6d 0x8908" "0x79 0x6900" "0x8f 0x1080"
+)
+
+# Run by the service, what this prints goes to the journal.
+log() { echo "$*"; }
+verb() { hda-verb "$DEV" "$@" 2>/dev/null | sed -n 's/^value = //p'; }
+get_pin() { verb "$1" GET_CONFIG_DEFAULT 0; }
+set_pin() {
+  local b v=$(( $2 ))
+  for b in 0 1 2 3; do
+    hda-verb "$DEV" "$1" "SET_CONFIG_DEFAULT_BYTES_$b" $(( (v >> (8 * b)) & 0xff )) >/dev/null 2>&1
+  done
+}
+get_coef() { hda-verb "$DEV" 0x20 SET_COEF_INDEX "$1" >/dev/null 2>&1; verb 0x20 GET_PROC_COEF 0; }
+set_coef() { hda-verb "$DEV" 0x20 SET_COEF_INDEX "$1" >/dev/null 2>&1; hda-verb "$DEV" 0x20 SET_PROC_COEF "$2" >/dev/null 2>&1; }
+same() { [[ -n $1 ]] && (( $1 == $2 )); }
+
+# Only this chip, in this Surface.
+grep -q "^Vendor Id: 0x10ec0298" "$CODEC" 2>/dev/null && grep -q "^Subsystem Id: 0x10ec108a" "$CODEC" || exit 0
+command -v hda-verb >/dev/null || { log "hda-verb (alsa-tools) is missing"; exit 1; }
+
+mic=$(get_pin 0x12)
+if same "$mic" 0x90a60140 && [[ ${1:-} != --force ]]; then
+  log "sound chip kept its setup through sleep"
+  exit 0
+fi
+log "sound chip was reset during sleep (mic pin reads ${mic:-nothing}); restoring its startup setup"
+
+keep=$KEEP/reset-$(date +%Y%m%d-%H%M%S)
+mkdir -p "$keep"
+cp "$CODEC" "$keep/codec.txt"
+for c in "${COEFS[@]}"; do read -r idx _ <<<"$c"; echo "$idx $(get_coef "$idx")"; done >"$keep/coef.txt"
+ls -dt "$KEEP"/reset-* | tail -n +11 | xargs -r rm -rf
+
+# Only what differs is written: some coefficient bits are the chip's own and
+# don't take a write.
+for p in "${PINS[@]}"; do read -r nid want <<<"$p"; same "$(get_pin "$nid")" "$want" || set_pin "$nid" "$want"; done
+for c in "${COEFS[@]}"; do read -r idx want <<<"$c"; same "$(get_coef "$idx")" "$want" || set_coef "$idx" "$want"; done
+
+off=""
+for p in "${PINS[@]}"; do read -r nid want <<<"$p"; have=$(get_pin "$nid"); same "$have" "$want" || off+=" pin $nid=$have"; done
+for c in "${COEFS[@]}"; do read -r idx want <<<"$c"; have=$(get_coef "$idx"); same "$have" "$want" || off+=" coef $idx=$have (want $want)"; done
+if [[ -z $off ]]; then log "restored (reset state kept in $keep)"; else log "restored, but these read back different:$off"; fi

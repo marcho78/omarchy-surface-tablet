@@ -40,6 +40,17 @@ git clone <this repo> ~/surface-tablet
   backends only open V4L2 webcams (its GStreamer backend skips PipeWire's libcamera
   cameras too), and these cameras only work through libcamera. A v4l2loopback virtual
   webcam fed from PipeWire would be the way; not set up.
+- Built-in microphones (`./install.sh --audio`, installs `alsa-tools` for `hda-verb`). The two
+  mics are wired with one inverted: mixed to mono the voice cancels (measured: the channels
+  move in opposite directions, correlation -0.96, ~12 dB of voice lost). The patch file
+  `/usr/lib/firmware/surface-tablet/surface-pro-4-hda.fw` (hint `inv_dmic_split`, matched to
+  this chip only), loaded by `/etc/modprobe.d/surface-audio.conf`, gives the inverted one an
+  "Inverted Capture Switch", which is off, so only the other records. A long sleep can reset
+  the sound chip to its power-on state, losing the firmware's mic setup (the mic then records
+  pure noise): `/usr/local/bin/surface-audio-wake`, run after every wake by
+  `surface-audio-wake.service`, checks the internal mic pin and, only if it was reset, writes
+  the firmware's pin configurations and vendor coefficients back
+  (`journalctl -t surface-audio-wake`; reset copies in `/var/lib/surface-tablet/audio`).
 
 - Omarchy shell touch patches (`system/usr/local/share/surface-tablet/omarchy-patches/`),
   applied by `/usr/local/bin/surface-omarchy-patches` and re-applied by a pacman hook
@@ -117,7 +128,12 @@ git clone <this repo> ~/surface-tablet
     Omarchy's screensaver shows in tablet mode, a tap anywhere closes it (SIGHUP to
     `omarchy-screensaver`, which exits cleanly): it only closes on a key press otherwise. Also
     the keyboard's suggestion strip (Esc, suggestions, mic, hide). While an app is full screen,
-    a pill at the top centre takes you out: pull down or tap it
+    a pill at the top centre takes you out: pull down or tap it. Window controls (Control
+    Center's Windows tile, `~/.local/state/tablet-mode/window-controls`): title bars, or an
+    iPad-style "•••" handle above the app in front (Full screen, Hide, Close); hidden apps are
+    in Stage Control and the dock. Double tap on empty desktop: brings back the app hidden last
+    (`~/.local/bin/tablet-last-app`), counted by hand since Qt's double click wants the taps a
+    few pixels apart
   - `devsecai.notification-center`: Notification Center (pull down on the left of the
     tablet bar): Omarchy's notification history grouped by app, tap to open the app
     (`~/.local/bin/tablet-open-app`, which also restores minimized windows), slide to
@@ -141,7 +157,7 @@ git clone <this repo> ~/surface-tablet
   Bottom swipe partway in tablet mode, `Super+D` docked (`stageKey` in shell.json; Omarchy
   already uses Super+A and Super+Tab). Touch mode in tablet mode: the desktops bar stays
   open, window titles and close buttons always show (bigger), long-press a desktop to
-  rename it.
+  rename it. In touch mode hidden (minimized) apps show too; tap one to bring it back.
 - `marcho78.o-spotlight`: Spotlight-style search for apps, Omarchy actions and settings,
   files and maths, with 12 styles. `Alt+Space` and the bar icon docked; in tablet mode the
   search icon in the middle of the bar, or the bottom swipe to Search. Touch mode: the
@@ -162,6 +178,9 @@ git clone <this repo> ~/surface-tablet
 - `~/.config/hypr/bindings.lua`: `Super+Shift+K` toggles the keyboard
 - `~/.config/chromium-flags.conf`: `--enable-wayland-ime --wayland-text-input-version=3`
 - `~/.config/omarchy/shell.json`: enables the plugins, adds the bar buttons
+- `~/.config/wireplumber/wireplumber.conf.d/50-surface-mic.conf`: the built-in mics start at
+  35% when nothing is saved. WirePlumber's default for a mic is 100%, which here is +60 dB
+  (Capture +30 and Internal Mic Boost +30): room sound alone clips and dictation hears nonsense
 
 ## Camera hardware
 

@@ -1,0 +1,14 @@
+# Surface Pro 4: gives the sound chip back its startup setup when a long sleep
+# reset it (see /usr/local/bin/surface-audio-wake). Runs after every wake.
+[Unit]
+Description=Restore the Surface Pro 4 sound chip after sleep
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+# Let the sound driver finish its own wake-up first.
+ExecStartPre=/usr/bin/sleep 2
+ExecStart=/usr/local/bin/surface-audio-wake
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

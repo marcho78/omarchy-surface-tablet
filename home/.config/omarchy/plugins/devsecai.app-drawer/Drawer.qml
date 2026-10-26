@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
@@ -121,9 +122,41 @@ Item {
       if (recentIds[i] !== id) next.push(recentIds[i])
     recentIds = next
     recentFile.setText(JSON.stringify(next))
-    // Launch first: hiding the drawer tears this object down.
-    appLibrary.launch(id, nameOf(entry))
+    // Launch first: hiding the drawer tears this object down. An app that is
+    // minimized comes back instead of opening a second copy, as in the dock.
+    if (!restoreMinimized(id)) appLibrary.launch(id, nameOf(entry))
     dismiss()
+  }
+
+  // Brings a minimized window of the app back to the desktop in front, focused,
+  // the way Omarchy's dock does. False when the app has none.
+  function restoreMinimized(id) {
+    var monitor = Hyprland.focusedMonitor
+    var workspace = monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1
+    if (!(workspace >= 1)) return false
+    var toplevels = Hyprland.toplevels.values
+    for (var i = 0; i < toplevels.length; i++) {
+      var ws = toplevels[i].workspace
+      var wayland = toplevels[i].wayland
+      if (!ws || ws.name !== "special:minimized" || !wayland || !wayland.appId) continue
+      var match = DesktopEntries.heuristicLookup(wayland.appId)
+      if (!(match && match.id === id) && String(wayland.appId).toLowerCase() !== id.toLowerCase()) continue
+      var address = String(toplevels[i].address || "")
+      if (!address) continue
+      if (address.indexOf("0x") !== 0) address = "0x" + address
+      var target = "window = \"address:" + address + "\""
+      var steps = [
+        "hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"1\", " + target + " })",
+        "hl.dsp.window.move({ workspace = \"" + workspace + "\", " + target + " })",
+        "hl.dsp.focus({ " + target + " })",
+        "hl.dsp.window.alter_zorder({ mode = \"top\", " + target + " })"
+      ]
+      var quote = function(step) { return "hyprctl dispatch '" + step + "'" }
+      Quickshell.execDetached(["sh", "-c", steps.map(quote).join(" && ")
+        + "; sleep 0.4; " + quote("hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"unset\", " + target + " })")])
+      return true
+    }
+    return false
   }
 
   function showKeyboard() {

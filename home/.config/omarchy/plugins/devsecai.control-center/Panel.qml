@@ -51,6 +51,26 @@ Item {
     }
   }
 
+  // Window controls in tablet mode: the "•••" handle or titlebars, kept for
+  // tablet.lua and the devsecai.gestures plugin (which draws the handle).
+  property bool windowHandle: true
+
+  FileView {
+    path: root.home + "/.local/state/tablet-mode/window-controls"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.windowHandle = text().trim() !== "titlebars"
+    onLoadFailed: root.windowHandle = true
+  }
+
+  // Titlebars go on or off at once: no reload.
+  function setWindowHandle(on) {
+    windowHandle = on
+    run("printf '%s\\n' " + (on ? "handle" : "titlebars") + " > " + home + "/.local/state/tablet-mode/window-controls; "
+      + "hyprctl eval 'hl.config({ plugin = { hyprbars = { enabled = " + (on ? "false" : "true") + " } } })'")
+  }
+
   // Uber TV (marcho78.om-pg) installed: the Media Center tile shows.
   property bool mediaCenter: false
 
@@ -410,6 +430,15 @@ Item {
               }
             }
 
+            // The "•••" handle above each app, or titlebars.
+            Tile {
+              width: parent.cell
+              icon: root.windowHandle ? "󰇘" : "󰖲"
+              title: "Windows"
+              subtitle: root.windowHandle ? "Handle" : "Title bars"
+              onTapped: root.setWindowHandle(!root.windowHandle)
+            }
+
             Tile {
               width: parent.cell
               icon: "󰄀"
@@ -477,16 +506,16 @@ Item {
               subtitle: root.muted ? "Muted" : Math.round(root.volume * 100) + "%"
               onTapped: root.page = "sound"
             }
+          }
 
-            // Uber TV's bar icon is hidden in tablet mode, so it opens from here.
-            Tile {
-              width: parent.cell
-              visible: root.mediaCenter
-              icon: String.fromCodePoint(0xf040c)
-              title: "Media Center"
-              subtitle: "Uber TV"
-              onTapped: root.runAndClose("omarchy-shell shell summon marcho78.om-pg")
-            }
+          // Uber TV's bar icon is hidden in tablet mode, so it opens from here.
+          Tile {
+            width: parent.width
+            visible: root.mediaCenter
+            icon: String.fromCodePoint(0xf040c)
+            title: "Media Center"
+            subtitle: "Uber TV"
+            onTapped: root.runAndClose("omarchy-shell shell summon marcho78.om-pg")
           }
 
           PillSlider {

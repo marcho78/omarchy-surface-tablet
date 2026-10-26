@@ -1,0 +1,20 @@
+#!/bin/bash
+# Brings back the app hidden most recently (minimized from the window handle,
+# the title bar or the dock) to the desktop in front, focused and the way it
+# was: Hyprland keeps a hidden window's full screen. Tablet mode runs this on
+# a double tap on the empty desktop. Nothing hidden: nothing happens.
+set -u
+
+address=$(hyprctl clients -j | jq -r '[.[] | select(.workspace.name == "special:minimized")]
+  | sort_by(.focusHistoryID) | .[0].address // empty')
+workspace=$(hyprctl activeworkspace -j | jq -r '.id')
+[[ -n $address && $workspace =~ ^[0-9]+$ && $workspace -ge 1 ]] || exit 0
+
+target="window = \"address:$address\""
+# Like Omarchy's dock: the window is simply there again, without animating in.
+hyprctl dispatch "hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"1\", $target })" >/dev/null &&
+  hyprctl dispatch "hl.dsp.window.move({ workspace = \"$workspace\", $target })" >/dev/null &&
+  hyprctl dispatch "hl.dsp.focus({ $target })" >/dev/null &&
+  hyprctl dispatch "hl.dsp.window.alter_zorder({ mode = \"top\", $target })" >/dev/null
+sleep 0.4
+hyprctl dispatch "hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"unset\", $target })" >/dev/null

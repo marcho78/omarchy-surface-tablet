@@ -128,15 +128,113 @@ plain V4L2 webcams).
 - Everything else lives in this repo, symlinked into `$HOME`;
   `./install.sh` (or `--home`, `--patches`, `--camera`, `--voice`) sets it up.
 
-## 9. Open items
+## 9. Window controls (tablet mode)
 
-- Window controls in tablet mode (next): an iPad-style "···" handle and a
-  setting for title bars or the handle. Title bars (hyprbars) are built for
-  a mouse; on the Type Cover's touchpad, taps that move a little are dropped
-  by libinput, so buttons feel hit-or-miss (pressing the pad down always
-  clicks). Done so far: the square button now gives real full screen, left
-  by a pill at the top centre.
+- **Full screen.** The title bar's square button gives real full screen; a pill
+  at the top centre (pull down or tap) leaves it.
+- **Title bars or a handle.** The Control Center's Windows tile chooses: Omarchy's
+  title bars, or an iPad-style "•••" handle above the app in front with Full
+  screen, Hide and Close. Title bars are built for a mouse; on the Type Cover's
+  touchpad, taps that move a little are dropped by libinput, which is why the
+  buttons felt hit-or-miss.
+- **Hidden apps.** Hiding (minimizing) an app used to leave no way back by touch.
+  Now Stage Control shows hidden apps in touch mode (tap to bring one back), the
+  app drawer brings back a hidden copy instead of opening a second one, the
+  handle says where hidden apps live, and a **double tap on the empty desktop**
+  brings back the app hidden last.
+- **Bugs found and fixed on the way:**
+  - The handle showed for a hidden app: Hyprland keeps a hidden app as the
+    active window when nothing else is on screen. The handle now ignores apps
+    on hidden workspaces.
+  - No handle on an app back from hiding or from full screen: the handle
+    depended on a marker tablet mode adds when it fits an app to the screen,
+    and those apps were never fitted. Apps are now fitted on those events too,
+    and the handle no longer needs the marker.
+  - The double tap didn't work: Qt's built-in double click only counts a
+    second tap a few pixels from the first. It is now counted by hand (second
+    tap within 0.4 s and 80 px), the moment the second finger lands.
+- **Tested** by sending finger touches into the touchscreen device (the same
+  path a real finger takes), after a long press opening the radial menu proved
+  the touches arrive: double taps at 0, 20, 40 and 70 px apart and with a
+  0.3 s gap bring the app back (focused, handle showing); taps 0.7 s or 150 px
+  apart, and single taps, do nothing; long press still opens the menu.
 
+## 10. The black screen (a mistake of mine)
+
+During that testing the screen went black and stayed black until the cover
+was detached. The cause was not tablet mode: an earlier command of mine, which
+was interrupted, had already stopped the Omarchy shell (wallpaper, bar, dock,
+gestures) and never started it again, and my checks said it was running
+because `pgrep -f omarchy-shell` matched my own command line. On an empty
+desktop with no shell, the screen is pure black. The shell was restarted; the
+reliable checks are `quickshell list` and `omarchy-shell shell ping`, and shell
+restarts now run detached so an interrupt can't cut them in half.
+
+## 11. Voice typing stopped working: the microphones
+
+Three separate problems, found in this order. Everything was measured; the
+tests are described with each.
+
+1. **The sound chip lost its setup.** The built-in mic recorded loud noise that
+   didn't change with the volume (-9 dBFS of "silence" even at +10 dB; a real
+   mic reads about -60). Its pin configuration read "not connected" where the
+   firmware sets "internal digital mic": after boot the chip (Realtek ALC298)
+   had been reset to its power-on state, losing the setup the firmware gives
+   it at boot. A reboot fixed it. Saving the chip's full state (pins, vendor
+   coefficients, GPIOs) before and after the reboot showed 7 pin settings and
+   17 vendor settings differ. Before that reboot the Surface had suspended four
+   times (7 h, 80 s, 3 h, 10 s); since then a 4.5-minute suspend and a
+   hibernate both left the chip intact (hibernate runs the firmware again). So
+   a long suspend most likely causes it; not proven yet.
+2. **The level clipped.** After the reboot the mic worked but words came out
+   wrong. PipeWire gives a mic with no saved setting 100%, which on this chip
+   maxes both gain stages (+60 dB): room sound alone sat at -6 dBFS and
+   clipped. A sweep of seven levels showed the noise now followed the volume,
+   as a working mic's should. 35% (+30 dB, no boost) is now the saved level and,
+   through a WirePlumber rule, the starting level if the saving is ever lost
+   (tested by removing the saved setting and restarting WirePlumber).
+3. **One mic of the pair is inverted.** Recorded in stereo, the two mics move
+   in opposite directions (correlation -0.96 at low frequencies); mixed to
+   mono, as dictation records, the voice cancels (about 12 dB lost). The sound
+   driver has a standard fix: the hint `inv_dmic_split` gives the inverted mic
+   a switch of its own, off. Tested live first (driver reconfigured with
+   PipeWire stopped): the inverted channel went silent. Then dictation was
+   accurate in long sentences with a loud TV on. Made permanent with a driver
+   patch file matched to this chip only, and confirmed after a reboot.
+
+Then **the wake-up fix** for problem 1: `surface-audio-wake.service` runs after
+every wake. If the internal mic pin reads "not connected" (the reset's
+fingerprint) it saves a copy of the reset state and writes the firmware's
+settings back (only those that differ), logging what it did. Tested on a normal
+wake (does nothing) and on a simulated reset (the marker set by hand: detected,
+restored). A real long sleep is still to come.
+
+Downloaded and installed for this: `alsa-tools` (for `hda-verb`, to read and
+write the chip's settings). Files: the driver patch file and modprobe option,
+the WirePlumber rule, `surface-audio-wake` and its service, all in this repo
+and installed by `./install.sh --audio` (the rule comes with `--home`).
+
+Along the way:
+- My first plan (just lower the volume) rested on a wrong assumption: the mic
+  then was broken, not too loud. The level sweep showed it.
+- A test that wrote the "after-reset" vendor settings back into the working
+  chip didn't reproduce the fault (the mic went silent instead), and cleared
+  two bits the chip sets itself, which writes can't restore. A reboot did.
+- Two recorded speech tests gave nothing useful: they depended on reading a
+  sentence at the right moment, with a TV on. Dictating for real was the test
+  that counted.
+- `sudo` asked for a password right after both reboots, though passwordless sudo
+  is set up (until Oct 26, 17:52); it worked again a little later.
+- PipeWire logs "RTKit error" at every start: RTKit isn't installed. It has been
+  there since boot, unrelated.
+
+## 12. Open items
+
+- The microphone after a long sleep: the wake-up fix is in, but untested on a
+  real reset. Fallback if it isn't enough: turn long suspends into hibernate
+  (suspend-then-hibernate), which keeps the mic working.
+- Stage Control's hidden-apps change is in marcho78's own plugin repo,
+  uncommitted.
 - Touch in desktop mode: bar taps still turn into drags there (the lock is
   tablet-only), and the edge swipes are tablet-only.
 - The front camera's picture is dim with a pink tint (no tuning file).

@@ -1,0 +1,12 @@
+# Surface Pro 4 sound chip (Realtek ALC298), loaded by snd-hda-intel
+# through /etc/modprobe.d/surface-audio.conf.
+#
+# Its two built-in microphones are wired with one inverted: mixed to
+# mono, as dictation and most apps record, the voice cancels out and
+# mostly noise is left. inv_dmic_split gives the inverted one a switch
+# of its own ("Inverted Capture Switch"), off, so only the other records.
+[codec]
+0x10ec0298 0x10ec108a 0
+
+[hint]
+inv_dmic_split = yes

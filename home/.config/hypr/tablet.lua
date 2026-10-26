@@ -189,7 +189,18 @@ function M.after()
     cursor = { hide_on_touch = true },
   })
 
+  -- Window controls: an iPad-style handle above each app (the devsecai.gestures
+  -- shell plugin draws it in the titlebar's place) or Omarchy's titlebars.
+  -- Chosen on the Control Center's Windows tile, kept in $STATE/window-controls.
+  local controls = io.open(STATE .. "/window-controls", "r")
+  local handle = true
+  if controls then
+    handle = controls:read("*l") ~= "titlebars"
+    controls:close()
+  end
+
   if hl.plugin.hyprbars then
+    hl.config({ plugin = { hyprbars = { enabled = not handle } } })
     hl.config({
       plugin = {
         hyprbars = {
@@ -209,9 +220,14 @@ function M.after()
   end
 
   -- Every app opens full screen, and one brought back from the dock fills the
-  -- screen again when it takes focus.
+  -- screen again when it takes focus. So does one coming back from being
+  -- hidden (minimized) or leaving full screen: one hidden before tablet mode
+  -- began, or hidden while full screen, was never fitted otherwise, and its
+  -- window handle didn't show.
   hl.on("window.open", fill_soon)
   hl.on("window.active", fill_soon)
+  hl.on("window.move_to_workspace", fill_soon)
+  hl.on("window.fullscreen", fill_soon)
 end
 
 return M

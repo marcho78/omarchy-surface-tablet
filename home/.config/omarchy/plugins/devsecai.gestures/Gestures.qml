@@ -116,7 +116,17 @@ Item {
   Timer {
     id: refit
     interval: 200
-    onTriggered: root.run(root.home + "/.local/bin/tablet-mode refit")
+    onTriggered: {
+      root.run(root.home + "/.local/bin/tablet-mode refit")
+      afterRefit.restart()
+    }
+  }
+
+  // Apps have moved: the window handle follows.
+  Timer {
+    id: afterRefit
+    interval: 600
+    onTriggered: fullscreenCheck.restart()
   }
 
   Connections {
@@ -337,7 +347,8 @@ Item {
   }
 
   // Long press on the desktop (wherever no window is): the same menu, all
-  // round the finger. Sits just above the wallpaper, under every window.
+  // round the finger. A double tap brings back the app hidden last. Sits just
+  // above the wallpaper, under every window.
   PanelWindow {
     visible: root.tablet && !!root.screen
     screen: root.screen
@@ -351,9 +362,47 @@ Item {
     MouseArea {
       anchors.fill: parent
       pressAndHoldInterval: 450
-      onPressAndHold: function(mouse) { root.openMenu(mouse.x, mouse.y, "around") }
+
+      // A double tap is counted here, not with Qt's double click, which only
+      // takes a second tap within a few pixels of the first: a finger lands
+      // further apart than that. It counts the moment the second tap lands.
+      property real tapAt: 0
+      property real tapX: 0
+      property real tapY: 0
+      property real pressAt: 0
+      property real pressX: 0
+      property real pressY: 0
+      property bool secondTap: false
+
+      onPressed: function(mouse) {
+        var now = Date.now()
+        secondTap = now - tapAt < 400 && Math.hypot(mouse.x - tapX, mouse.y - tapY) < 80
+        tapAt = 0
+        pressAt = now
+        pressX = mouse.x
+        pressY = mouse.y
+        if (secondTap) root.run(root.home + "/.local/bin/tablet-last-app")
+      }
+      // Qt reports a double click of its own when the taps land close
+      // together; taking it keeps Qt from cancelling the second tap.
+      onDoubleClicked: function(mouse) { mouse.accepted = true }
+      onPressAndHold: function(mouse) { if (!secondTap) root.openMenu(mouse.x, mouse.y, "around") }
       onPositionChanged: function(mouse) { if (root.menuOpen) root.menuHot = root.hotAt(mouse.x, mouse.y) }
-      onReleased: if (root.menuOpen && root.menuHot !== "") root.chooseMenu(root.menuHot)
+      onReleased: function(mouse) {
+        if (root.menuOpen) {
+          if (root.menuHot !== "") root.chooseMenu(root.menuHot)
+          return
+        }
+        // A tap: let go before the long press, with the finger kept still.
+        if (!secondTap && Date.now() - pressAt < pressAndHoldInterval
+            && Math.hypot(mouse.x - pressX, mouse.y - pressY) < 24) {
+          tapAt = Date.now()
+          tapX = mouse.x
+          tapY = mouse.y
+        }
+        secondTap = false
+      }
+      onCanceled: secondTap = false
     }
   }
 
@@ -818,7 +867,10 @@ Item {
   Timer {
     id: fullscreenCheck
     interval: 120
-    onTriggered: fullscreenProc.running = true
+    onTriggered: {
+      fullscreenProc.running = true
+      if (!activeProc.running) activeProc.running = true
+    }
   }
 
   Process {
@@ -875,6 +927,253 @@ Item {
         root.leaveFullscreen()
       }
       onClicked: if (!fired) root.leaveFullscreen()
+    }
+  }
+
+  // ------------------------------------------------------------ window handle
+
+  // iPad style: a "•••" above the app in front, in the titlebar's place
+  // (tablet.lua turns titlebars off while this is chosen). Tap it for Full
+  // screen, Hide (minimize) and Close. The Control Center's Windows tile switches
+  // between this and titlebars ($STATE/window-controls).
+  property bool handleMode: true
+
+  FileView {
+    path: root.home + "/.local/state/tablet-mode/window-controls"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.handleMode = text().trim() !== "titlebars"
+    onLoadFailed: root.handleMode = true
+  }
+
+  // The app in front, from hyprctl. App-sized windows count (the size tablet
+  // mode fits to the screen), not dialogs. Not the tablet-maximized tag: a
+  // window that missed being fitted would lose its handle.
+  property string activeAddress: ""
+  property string activeTitle: ""
+  property bool activeApp: false
+  property real activeX: 0
+  property real activeY: 0
+  property real activeW: 0
+
+  Process {
+    id: activeProc
+    running: true
+    command: ["hyprctl", "activewindow", "-j"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var w = JSON.parse(String(text || "{}"))
+          root.activeAddress = String(w.address || "")
+          root.activeTitle = String(w.title || w.class || "")
+          // A hidden (minimized) app stays the active window when nothing
+          // else is on screen; it is not in front, so it gets no handle.
+          var shown = !!w.address && !!w.workspace && w.workspace.id >= 1
+          var size = w.size || [0, 0]
+          root.activeApp = shown && !w.pinned && (size[0] >= 700 || size[1] >= 560)
+          root.activeX = w.at ? w.at[0] : 0
+          root.activeY = w.at ? w.at[1] : 0
+          root.activeW = w.size ? w.size[0] : 0
+        } catch (e) {
+          root.activeApp = false
+        }
+      }
+    }
+  }
+
+  property bool windowMenuOpen: false
+
+  function windowAction(action) {
+    var target = 'window = "address:' + activeAddress + '"'
+    windowMenuOpen = false
+    if (action === "fullscreen")
+      run("hyprctl dispatch 'hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"toggle\", " + target + " })'")
+    else if (action === "minimize")
+      run("omarchy-hyprland-window-minimize " + activeAddress)
+    else if (action === "close")
+      run("hyprctl dispatch 'hl.dsp.window.close({ " + target + " })'")
+    fullscreenCheck.restart()
+  }
+
+  PanelWindow {
+    id: handle
+    visible: root.tablet && root.handleMode && root.activeApp && !root.fullscreen
+      && !root.windowMenuOpen && !!root.screen
+    screen: root.screen
+    anchors { top: true; left: true }
+    margins {
+      left: Math.max(0, Math.round(root.activeX + root.activeW / 2 - handle.width / 2))
+      top: Math.max(0, Math.round(root.activeY - 46))
+    }
+    implicitWidth: 132
+    implicitHeight: 40
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.namespace: "devsecai-window-handle"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    Rectangle {
+      anchors.centerIn: parent
+      width: 72
+      height: 26
+      radius: 13
+      color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, handlePress.pressed ? 0.28 : 0.14)
+      scale: handlePress.pressed ? 0.94 : 1
+      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+      Row {
+        anchors.centerIn: parent
+        spacing: 7
+        Repeater {
+          model: 3
+          Rectangle { width: 7; height: 7; radius: 3.5; color: Color.foreground; opacity: 0.85 }
+        }
+      }
+    }
+
+    // Tap, or pull it down a little, for the menu.
+    MouseArea {
+      id: handlePress
+      anchors.fill: parent
+      property real startY: 0
+      onPressed: function(mouse) { startY = mouse.y }
+      onPositionChanged: function(mouse) { if (mouse.y - startY > root.swipeMin) root.windowMenuOpen = true }
+      onClicked: root.windowMenuOpen = true
+    }
+  }
+
+  PanelWindow {
+    visible: root.windowMenuOpen && !!root.screen
+    screen: root.screen
+    anchors { top: true; bottom: true; left: true; right: true }
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "devsecai-window-menu"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+    Rectangle {
+      anchors.fill: parent
+      color: "black"
+      opacity: root.windowMenuOpen ? 0.3 : 0
+      Behavior on opacity { NumberAnimation { duration: 160 } }
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      onClicked: root.windowMenuOpen = false
+    }
+
+    RectangularShadow {
+      anchors.fill: windowCard
+      radius: windowCard.radius
+      blur: 32
+      offset.y: 8
+      color: Qt.rgba(0, 0, 0, 0.5)
+    }
+
+    Rectangle {
+      id: windowCard
+      width: 340
+      height: 200
+      radius: 26
+      x: Math.max(12, Math.min(parent.width - width - 12, root.activeX + root.activeW / 2 - width / 2))
+      y: Math.max(12, root.activeY - 40)
+      color: Color.popups.background
+      border.width: 1
+      border.color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.12)
+      scale: root.windowMenuOpen ? 1 : 0.94
+      transformOrigin: Item.Top
+      Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+      // Swallow taps on the card.
+      MouseArea { anchors.fill: parent }
+
+      Text {
+        id: windowTitle
+        anchors.top: parent.top
+        anchors.topMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width - 40
+        horizontalAlignment: Text.AlignHCenter
+        elide: Text.ElideRight
+        text: root.activeTitle
+        color: Color.foreground
+        opacity: 0.75
+        font.family: Style.font.family
+        font.pixelSize: 13
+        font.bold: true
+      }
+
+      // Where a hidden app goes, so it is not lost.
+      Text {
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 14
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "Hidden apps are in Stage Control and the dock"
+        color: Color.foreground
+        opacity: 0.5
+        font.family: Style.font.family
+        font.pixelSize: 12
+      }
+
+      Row {
+        anchors.top: windowTitle.bottom
+        anchors.topMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: 26
+
+        Repeater {
+          model: [
+            { key: "fullscreen", icon: "󰊓", label: "Full screen" },
+            { key: "minimize", icon: "󰖰", label: "Hide" },
+            { key: "close", icon: "󰅖", label: "Close" }
+          ]
+
+          Column {
+            id: action
+            required property var modelData
+            spacing: 8
+
+            Rectangle {
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: 64
+              height: 64
+              radius: 32
+              color: action.modelData.key === "close"
+                ? (actionPress.pressed ? "#c53b40" : "#e5484d")
+                : (actionPress.pressed ? Color.accent : Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.1))
+              scale: actionPress.pressed ? 0.92 : 1
+              Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
+
+              Text {
+                anchors.centerIn: parent
+                text: action.modelData.icon
+                color: action.modelData.key === "close" ? "white" : Color.foreground
+                font.family: Style.font.family
+                font.pixelSize: 26
+              }
+
+              MouseArea {
+                id: actionPress
+                anchors.fill: parent
+                onClicked: root.windowAction(action.modelData.key)
+              }
+            }
+
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: action.modelData.label
+              color: Color.foreground
+              font.family: Style.font.family
+              font.pixelSize: 13
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -7,6 +7,7 @@
 #   ./install.sh --patches  only the Omarchy shell touch patches (sudo)
 #   ./install.sh --camera   only the back camera driver fix (sudo)
 #   ./install.sh --voice    only voice typing (sudo)
+#   ./install.sh --audio    only the built-in microphones fix (sudo)
 #
 # Files under home/ are symlinked into $HOME, so editing them in place edits
 # this repo. Files that also hold your own settings (hyprland.lua, bindings,
@@ -56,6 +57,9 @@ install_system() {
 
   say "Voice typing (Omarchy's dictation with Voxtype)"
   install_voice_typing
+
+  say "Built-in microphones (one of the pair is wired inverted)"
+  install_audio_fix
 }
 
 # Patches to Omarchy's own shell files (e.g. sliding through the theme picker
@@ -95,6 +99,24 @@ install_voice_typing() {
     curl -fsSL -o "$models/$model.zip" "https://alphacephei.com/vosk/models/$model.zip"
     unzip -q -d "$models" "$models/$model.zip" && rm "$models/$model.zip"
   fi
+}
+
+# The built-in microphones: one of the pair is wired inverted, so mixed to mono
+# the voice cancels out. A driver hint (patch file) gives it a switch of its own,
+# off. Takes effect when the driver next loads (reboot). Their starting level,
+# 35%, is in home/.config/wireplumber (100% clips). A long sleep can reset the
+# sound chip, losing the firmware's mic setup: surface-audio-wake.service checks
+# after every wake and writes it back (with alsa-tools' hda-verb).
+install_audio_fix() {
+  sudo pacman -S --needed --noconfirm alsa-tools
+  sudo install -Dm644 "$REPO/system/usr/lib/firmware/surface-tablet/surface-pro-4-hda.fw" \
+    /usr/lib/firmware/surface-tablet/surface-pro-4-hda.fw
+  sudo install -Dm644 "$REPO/system/etc/modprobe.d/surface-audio.conf" /etc/modprobe.d/surface-audio.conf
+  sudo install -Dm755 "$REPO/system/usr/local/bin/surface-audio-wake" /usr/local/bin/surface-audio-wake
+  sudo install -Dm644 "$REPO/system/etc/systemd/system/surface-audio-wake.service" \
+    /etc/systemd/system/surface-audio-wake.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable surface-audio-wake.service
 }
 
 # ---------------------------------------------------------------- home
@@ -180,6 +202,7 @@ case ${1:-} in
   --patches) install_omarchy_patches; omarchy restart shell >/dev/null 2>&1 || true ;;
   --camera) install_camera_fix; say "Done. Reboot to load the fixed camera driver." ;;
   --voice) install_voice_typing ;;
+  --audio) install_audio_fix; say "Done. Reboot to load the sound driver with it." ;;
   "") install_system; install_home; say "Done. Reboot into the linux-surface kernel." ;;
-  *) echo "Usage: $0 [--home|--patches|--camera|--voice]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [--home|--patches|--camera|--voice|--audio]" >&2; exit 1 ;;
 esac
